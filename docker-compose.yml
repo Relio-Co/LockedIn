@@ -1,0 +1,11 @@
+version: '3'
+services:
+
+  lockedinbackend:
+    build:
+      context: ./backend/
+      dockerfile: Dockerfile
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./backend/lockedinbackend:/app

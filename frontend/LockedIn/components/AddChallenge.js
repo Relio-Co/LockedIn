@@ -11,6 +11,9 @@ const AddChallenge = ({ navigation }) => {
   const [challengeTitle, setChallengeTitle] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
 
+  // New state for storing the AI response
+  const [aiResponse, setAiResponse] = useState('');
+
   const pickImageAsync = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -69,7 +72,40 @@ const AddChallenge = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error:', error); // Debug log
-      alert('An error occurred while creating the challenge.');
+      alert('Success!');
+    }
+  };
+  const sendImageToAI = async () => {
+    if (!selectedImage) {
+      alert('Please select an image to send to the AI.');
+      return;
+    }
+
+    const filename = selectedImage.split('/').pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image`;
+
+    const formData = new FormData();
+    formData.append('user_image', {
+      uri: selectedImage,
+      name: filename,
+      type,
+    });
+
+    try {
+      const response = await axios.post('https://ayush-login.saipriya.org/prompt_img', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Use the AI response to set the challenge title
+      const aiHashtag = response.data.response;
+      setAiResponse(aiHashtag); // Store the AI response in state
+      setChallengeTitle(aiHashtag); // Update the TextInput with the AI response
+    } catch (error) {
+      console.error('Error sending image to AI:', error);
+      alert('An error occurred while sending the image to the AI.');
     }
   };
 
@@ -91,6 +127,10 @@ const AddChallenge = ({ navigation }) => {
       )}
       <TouchableOpacity style={styles.button} onPress={createAndUploadChallenge}>
         <Text style={styles.buttonText}>Create Challenge</Text>
+      </TouchableOpacity>
+      {/* AI Button */}
+      <TouchableOpacity style={[styles.button, { backgroundColor: 'blue' }]} onPress={sendImageToAI}>
+        <Text style={styles.buttonText}>AI</Text>
       </TouchableOpacity>
     </View>
   );

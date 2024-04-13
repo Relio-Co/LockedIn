@@ -149,12 +149,19 @@ const MainScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
-          <Ionicons name="menu" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>🔒LockedIn</Text>
         <TouchableOpacity onPress={() => navigation.navigate("Friends")}>
           <Ionicons name="people" size={24} color="white" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>🔒Tackle</Text>
+
+        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+          <Image
+            source={{
+              uri: "https://media.licdn.com/dms/image/C4E03AQF0h_tiMM_Xew/profile-displayphoto-shrink_400_400/0/1657641150377?e=1718236800&v=beta&t=skWOaYHNhUXkdrFfHj1qKOmiC-6ep3hqOB6NLGoY14M",
+            }}
+            style={styles.profilePicture}
+          />
         </TouchableOpacity>
       </View>
 
@@ -194,13 +201,13 @@ const MainScreen = ({ navigation }) => {
         keyExtractor={(item) => item._id}
       />
 
-      <View style={styles.addButtonContainer}>
+      {/* <View style={styles.addButtonContainer}>
         <Button
           title="Post a Challenge"
           onPress={() => navigation.navigate("AddChallenge")}
           color="black"
         />
-      </View>
+      </View> */}
 
       <Modal
         animationType="slide"
@@ -431,6 +438,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 50,
     borderRadius: 15,
+  },
+
+  profilePicture: {
+    bottom: 0,
+    right: 0,
+    width: 35,
+    height: 35,
+    borderRadius: 25,
   },
 });
 

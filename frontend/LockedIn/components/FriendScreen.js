@@ -124,6 +124,12 @@ const FriendsScreen = () => {
 
   const renderFriendItem = ({ item }) => (
     <View style={styles.friendItem}>
+      <Image
+        source={{
+          uri: "https://media.licdn.com/dms/image/C4E03AQF0h_tiMM_Xew/profile-displayphoto-shrink_400_400/0/1657641150377?e=1718236800&v=beta&t=skWOaYHNhUXkdrFfHj1qKOmiC-6ep3hqOB6NLGoY14M",
+        }}
+        style={styles.profilePicture}
+      />
       <Text style={styles.friendName}>{item}</Text>
     </View>
   );
@@ -236,6 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1f1f1f",
     padding: 10,
     borderRadius: 5,
+    paddingVertical: 10,
   },
   friendIcon: {
     width: 40,
@@ -287,6 +294,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#424242",
     marginVertical: 10,
+  },
+  profilePicture: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
   },
 });
 

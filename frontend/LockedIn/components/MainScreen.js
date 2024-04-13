@@ -132,6 +132,13 @@ const MainScreen = ({ navigation }) => {
                 }}
                 style={styles.imageSquare}
               />
+              {/* Hardcoded profile picture */}
+              <Image
+                source={{
+                  uri: "https://media.licdn.com/dms/image/C4E03AQF0h_tiMM_Xew/profile-displayphoto-shrink_400_400/0/1657641150377?e=1718236800&v=beta&t=skWOaYHNhUXkdrFfHj1qKOmiC-6ep3hqOB6NLGoY14M",
+                }}
+                style={styles.profilePictureOverlay}
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -205,7 +212,7 @@ const MainScreen = ({ navigation }) => {
       >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <Text style={styles.modalText}>Image Details</Text>
+            <Text style={styles.modalText}>alanka</Text>
             {selectedImage && (
               <Image
                 source={{
@@ -214,6 +221,13 @@ const MainScreen = ({ navigation }) => {
                 style={styles.modalImage}
               />
             )}
+
+            <Image
+              source={{
+                uri: "https://media.licdn.com/dms/image/C4E03AQF0h_tiMM_Xew/profile-displayphoto-shrink_400_400/0/1657641150377?e=1718236800&v=beta&t=skWOaYHNhUXkdrFfHj1qKOmiC-6ep3hqOB6NLGoY14M",
+              }}
+              style={styles.profilePictureOverlayModal}
+            />
             <TouchableOpacity
               style={[styles.button, styles.buttonClose]}
               onPress={() => setModalVisible(!modalVisible)}
@@ -380,6 +394,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalText: {
+    marginTop: 20,
     marginBottom: 15,
     textAlign: "center",
     color: "white",
@@ -401,6 +416,21 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     textAlign: "center",
+  },
+  profilePictureOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  profilePictureOverlayModal: {
+    position: "absolute",
+
+    width: 60,
+    height: 50,
+    borderRadius: 15,
   },
 });
 

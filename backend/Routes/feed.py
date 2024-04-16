@@ -9,15 +9,15 @@ fs = GridFS(db)
 
 @app.route('/challenges', methods=['GET'])
 def get_challenges():
-    username = request.args.get('username')
+    user_id = request.args.get('user_id')
     challenge_type = request.args.get('type')
 
-    friend_usernames = []
+    friend_user_ids = []
     if challenge_type == 'friends':
-        user = db.Users.find_one({'username': username})
+        user = db.Users.find_one({'_id': ObjectId(user_id)})
         if user:
-            friend_usernames = user.get('friends_list', [])
-        challenges = db.Challenges.find({'$or': [{'createdBy': {'$in': friend_usernames}}, {'subscribers': username}]})
+            friend_user_ids = user.get('friends_list', [])
+        challenges = db.Challenges.find({'$or': [{'createdBy': {'$in': friend_user_ids}}, {'subscribers': user_id}]})
     elif challenge_type == 'forYou':
         challenges = db.Challenges.find()
     else:
@@ -25,12 +25,12 @@ def get_challenges():
 
     challenge_list = []
     for challenge in challenges:
-        subscribed_friends = [friend for friend in challenge.get('subscribers', []) if friend in friend_usernames]
+        subscribed_friends = [friend for friend in challenge.get('subscribers', []) if friend in friend_user_ids]
         image_ids = challenge.get('images', [])[:6]  # Limit to top 6 images
         challenge_list.append({
             '_id': str(challenge['_id']),
             'title': challenge['title'],
-            'subscribed': username in challenge.get('subscribers', []),
+            'subscribed': user_id in challenge.get('subscribers', []),
             'subscribedFriends': subscribed_friends,
             'images': image_ids,
         })
@@ -39,33 +39,33 @@ def get_challenges():
 
 @app.route('/subscribe_challenge', methods=['POST'])
 def subscribe_challenge():
-    username = request.json['username']
+    user_id = request.json['user_id']
     challenge_id = request.json['challengeId']
 
     db.Challenges.update_one(
         {'_id': ObjectId(challenge_id)},
-        {'$addToSet': {'subscribers': username}}
+        {'$addToSet': {'subscribers': user_id}}
     )
 
     return jsonify({'message': 'Subscribed to challenge'}), 200
 
 @app.route('/toggle_subscribe_challenge', methods=['POST'])
 def toggle_subscribe_challenge():
-    username = request.json['username']
+    user_id = request.json['user_id']
     challenge_id = request.json['challengeId']
 
     challenge = db.Challenges.find_one({'_id': ObjectId(challenge_id)})
     if challenge:
-        if username in challenge.get('subscribers', []):
+        if user_id in challenge.get('subscribers', []):
             db.Challenges.update_one(
                 {'_id': ObjectId(challenge_id)},
-                {'$pull': {'subscribers': username}}
+                {'$pull': {'subscribers': user_id}}
             )
             message = 'Unsubscribed from challenge'
         else:
             db.Challenges.update_one(
                 {'_id': ObjectId(challenge_id)},
-                {'$addToSet': {'subscribers': username}}
+                {'$addToSet': {'subscribers': user_id}}
             )
             message = 'Subscribed to challenge'
     else:
@@ -76,11 +76,11 @@ def toggle_subscribe_challenge():
 @app.route('/create_challenge', methods=['POST'])
 def create_challenge():
     title = request.form['title']
-    username = request.form['username']
+    user_id = request.form['user_id']
     image = request.files.get('image')
 
-    if not title or not username:
-        return jsonify({'error': 'Title and username are required'}), 400
+    if not title or not user_id:
+        return jsonify({'error': 'Title and user_id are required'}), 400
 
     existing_challenge = db.Challenges.find_one({'title': title})
 
@@ -100,8 +100,8 @@ def create_challenge():
     else:
         challenge = {
             'title': title,
-            'createdBy': username,
-            'subscribers': [username],
+            'createdBy': user_id,
+            'subscribers': [user_id],
             'images': []
         }
         challenge_id = db.Challenges.insert_one(challenge).inserted_id

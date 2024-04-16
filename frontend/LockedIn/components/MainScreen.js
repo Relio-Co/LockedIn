@@ -155,7 +155,7 @@ const MainScreen = ({ navigation }) => {
 
         <Text style={styles.headerTitle}>🔒Tackle</Text>
 
-        <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+        <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
           <Image
             source={{
               uri: "https://media.licdn.com/dms/image/C4E03AQF0h_tiMM_Xew/profile-displayphoto-shrink_400_400/0/1657641150377?e=1718236800&v=beta&t=skWOaYHNhUXkdrFfHj1qKOmiC-6ep3hqOB6NLGoY14M",
@@ -176,7 +176,7 @@ const MainScreen = ({ navigation }) => {
               selectedTab === "forYou" && styles.selectedTabText,
             ]}
           >
-            For You
+            Community
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -189,7 +189,7 @@ const MainScreen = ({ navigation }) => {
               selectedTab === "friends" && styles.selectedTabText,
             ]}
           >
-            Friends
+            Your Habits
           </Text>
         </TouchableOpacity>
       </View>

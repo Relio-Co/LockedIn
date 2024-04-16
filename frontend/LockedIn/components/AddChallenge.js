@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Button,
   TextInput,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const api = axios.create({
   baseURL: `https://${process.env.EXPO_PUBLIC_API_LOGIN_API}`,
@@ -20,6 +21,20 @@ const AddChallenge = ({ navigation }) => {
   const [challengeTitle, setChallengeTitle] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
   const [aiResponse, setAiResponse] = useState("");
+  const [currentUsername, setCurrentUsername] = useState("");
+
+  useEffect(() => {
+    getCurrentUsername();
+  }, []);
+
+  const getCurrentUsername = async () => {
+    try {
+      const username = await AsyncStorage.getItem("username");
+      setCurrentUsername(username);
+    } catch (error) {
+      console.error("Error getting current username:", error);
+    }
+  };
 
   const pickImageAsync = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -52,7 +67,7 @@ const AddChallenge = ({ navigation }) => {
 
     const formData = new FormData();
     formData.append("title", challengeTitle);
-    formData.append("username", "username"); // Replace 'username' with the logged-in user's username
+    formData.append("username", currentUsername); // Replace 'username' with the logged-in user's username
     formData.append("image", {
       uri: selectedImage,
       name: filename,
@@ -96,25 +111,6 @@ const AddChallenge = ({ navigation }) => {
       name: filename,
       type,
     });
-
-    try {
-      const response = await axios.post(
-        "https://ayush-login.saipriya.org/prompt_img",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      const aiHashtag = response.data.response;
-      setAiResponse(aiHashtag);
-      setChallengeTitle(aiHashtag);
-    } catch (error) {
-      console.error("Error sending image to AI:", error);
-      alert("An error occurred while sending the image to the AI.");
-    }
   };
 
   return (

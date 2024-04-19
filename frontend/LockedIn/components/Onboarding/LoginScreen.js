@@ -1,47 +1,55 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  Alert,
+} from "react-native";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter your email and password');
+    if (!username || !password) {
+      Alert.alert("Error", "Please enter your username and password");
       return;
     }
     fetch(`https://${process.env.EXPO_PUBLIC_API_LOGIN_API}/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email,
+        username, // Change from 'email' to 'username'
         password,
       }),
     })
       .then((response) => response.json())
       .then(async (data) => {
         if (data.message === "successfull") {
-          // Store the user's email and name in AsyncStorage
-          await AsyncStorage.setItem('userEmail', email);
+          // Store the user's username in AsyncStorage
+          await AsyncStorage.setItem("username", username); // Store 'username' instead of 'userEmail'
           // Navigate to the desired screen after successful login
-          navigation.replace('DrawerNavigator');
+          navigation.replace("DrawerNavigator");
         } else {
           // Handle login error
-          console.log('Login error:', data.error);
+          console.log("Login error:", data.error);
         }
       })
       .catch((error) => {
         // Handle network or other errors
-        console.log('Error:', error);
+        console.log("Error:", error);
       });
   };
-  
-  
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -50,7 +58,7 @@ const LoginScreen = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.headerContainer}>
@@ -58,19 +66,28 @@ const LoginScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.inputContainer}>
-          <Ionicons name="mail-outline" size={24} color="#02fff1" style={styles.icon} />
+          <Ionicons
+            name="person-outline"
+            size={24}
+            color="#02fff1"
+            style={styles.icon}
+          />
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="Username"
             placeholderTextColor="#7e7e7e"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+            value={username}
+            onChangeText={setUsername}
           />
         </View>
 
         <View style={styles.inputContainer}>
-          <Ionicons name="lock-closed-outline" size={24} color="#02fff1" style={styles.icon} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={24}
+            color="#02fff1"
+            style={styles.icon}
+          />
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -79,9 +96,12 @@ const LoginScreen = ({ navigation }) => {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
           />
-          <TouchableOpacity style={styles.showPasswordButton} onPress={toggleShowPassword}>
+          <TouchableOpacity
+            style={styles.showPasswordButton}
+            onPress={toggleShowPassword}
+          >
             <Feather
-              name={showPassword ? 'eye-off' : 'eye'}
+              name={showPassword ? "eye-off" : "eye"}
               size={24}
               color="#02fff1"
             />
@@ -92,7 +112,7 @@ const LoginScreen = ({ navigation }) => {
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+        <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
           <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -103,12 +123,12 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   headerContainer: {
@@ -116,13 +136,13 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#232323',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#232323",
     borderRadius: 10,
     paddingHorizontal: 15,
     marginBottom: 20,
@@ -134,26 +154,26 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   showPasswordButton: {
     marginLeft: 10,
   },
   loginButton: {
-    backgroundColor: '#02fff1',
+    backgroundColor: "#02fff1",
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 25,
     marginTop: 20,
   },
   loginButtonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   signUpText: {
     marginTop: 20,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
   },
 });

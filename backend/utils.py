@@ -1,8 +1,8 @@
 from Database.db import db
 from flask import request, jsonify
 
-def get_user(email):
-    user = db.Users.find_one({"email": email})
+def get_user(username):
+    user = db.Users.find_one({"username": username})
     if user:
         return dict(user)  # Ensure it's a dictionary
     else:

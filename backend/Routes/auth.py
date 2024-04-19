@@ -27,9 +27,9 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    email = request.json['email']
+    username = request.json['username']
     password = request.json['password']
-    user = db.Users.find_one({'email': email})
+    user = db.Users.find_one({'username': username})
     if user and check_password_hash(user['password'], password):
         return jsonify({"message": "successfull", "username": user['name']}), 200
     else:

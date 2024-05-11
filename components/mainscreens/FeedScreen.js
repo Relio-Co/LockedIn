@@ -98,7 +98,7 @@ function FeedScreen() {
           <Icon name="search" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
-          <Icon name="user" size={24} color="white" />
+          <Icon name="user" size={24} color="black" />
         </TouchableOpacity>
       </View>
     </View>

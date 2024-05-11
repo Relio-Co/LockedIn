@@ -1,29 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { db, auth } from './firebaseConfig';
-import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs } from 'firebase/firestore';
+import { Image } from 'expo-image';
+
 
 function FriendsScreen({ navigation }) {
     const [friends, setFriends] = useState([]);
-    const [invites, setInvites] = useState([]);
     const [usernameToAdd, setUsernameToAdd] = useState('');
     const [loading, setLoading] = useState(false);
+    const [invites, setInvites] = useState([]);
 
     useEffect(() => {
-        fetchFriendsAndInvites();
+        fetchFriends();
     }, []);
 
-    const fetchFriendsAndInvites = async () => {
+    const fetchFriends = async () => {
         setLoading(true);
         const userRef = doc(db, 'users', auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-            const userData = userSnap.data();
-            setFriends(userData.friends || []);
-            setInvites(userData.friendRequests || []);
+          const friendIds = userSnap.data().friends || [];
+          const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
+          const friendSnaps = await Promise.all(friendQueries);
+          const friendsData = friendSnaps.map((snap) => snap.data());
+          setFriends(friendsData);
         }
         setLoading(false);
-    };
+      };
 
     const sendFriendRequest = async () => {
         if (!usernameToAdd.trim()) {
@@ -52,15 +56,9 @@ function FriendsScreen({ navigation }) {
         const currentUserSnap = await getDoc(currentUserRef);
         const currentUserData = currentUserSnap.data();
 
-        if (currentUserData.friends && currentUserData.friends.includes(targetUserId)) {
+        if (currentUserData.friends && currentUserData.friends.some(friend => friend.id === targetUserId)) {
             setLoading(false);
             Alert.alert("Error", "This user is already your friend.");
-            return;
-        }
-
-        if (currentUserData.sentRequests && currentUserData.sentRequests.includes(targetUserId)) {
-            setLoading(false);
-            Alert.alert("Error", "Friend request already sent.");
             return;
         }
 
@@ -102,7 +100,7 @@ function FriendsScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>My Friends</Text>
+           <Text style={styles.title}>My Friends</Text>
             <TextInput
                 style={styles.input}
                 onChangeText={setUsernameToAdd}
@@ -113,11 +111,14 @@ function FriendsScreen({ navigation }) {
             {loading && <ActivityIndicator size="large" color="#0000ff" />}
             <FlatList
                 data={friends}
-                keyExtractor={item => item}
+                keyExtractor={item => item.id}
                 renderItem={({ item }) => (
-                    <View style={styles.friendItem}>
-                        <Text style={styles.friendName}>{item}</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.uid })}>
+                    <View  style={styles.friendItem}>
+                        <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
+                        <Text style={styles.friendName}>{item.username}</Text>
                     </View>
+                    </TouchableOpacity>
                 )}
             />
             <Text style={styles.title}>Friend Requests</Text>
@@ -154,31 +155,22 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     friendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginBottom: 10,
         padding: 10,
         backgroundColor: '#f0f0f0',
+    },
+    profilePic: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 10,
     },
     friendName: {
         fontSize: 16,
         fontWeight: '500',
     },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginTop: 5,
-    },
-    groupLink: {
-        color: 'blue',
-        textDecorationLine: 'underline',
-    },
-    inviteItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 10,
-        marginBottom: 10,
-        backgroundColor: '#f9f9f9',
-    }
 });
 
 export default FriendsScreen;

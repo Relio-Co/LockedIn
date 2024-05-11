@@ -18,17 +18,25 @@ function FeedScreen() {
   const fetchUserDataAndPosts = async () => {
     const userRef = doc(db, 'users', auth.currentUser.uid);
     const docSnap = await getDoc(userRef);
-    const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
-    setUserGroups(userGroups);
-    AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
+    if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
+      // This ensures data is fetched only if there's a change
+      const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
+      setUserGroups(userGroups);
+      AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
+  
+      const postsQuery = await getDocs(collection(db, 'posts'));
+      const allPosts = postsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const today = new Date();
+      let filteredPosts;
 
-    const postsQuery = await getDocs(collection(db, 'posts'));
-    const allPosts = postsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const filteredPosts = feedType === 'friends'
-      ? allPosts.filter(post => userGroups.includes(post.groupId))
-      : allPosts.filter(post => post.isPublic);
+if (feedType === 'friends') {
+  filteredPosts = allPosts.filter(post => userGroups.includes(post.groupId));
+} else {
+  filteredPosts = allPosts.filter(post => post.isPublic);
+}
 
-    setPosts(filteredPosts);
+setPosts(filteredPosts);
+    }
   };
 
   useEffect(() => {

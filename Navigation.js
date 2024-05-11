@@ -13,7 +13,7 @@ import CreateGroupScreen from './components/groups/CreateGroupScreen';
 import GroupDetailsScreen from './components/groups/GroupFeedScreen';
 import GroupMembersScreen from './components/groups/GroupMembersScreen';
 import GroupSettingsScreen from './components/groups/GroupSettingsScreen';
-import FriendsScreen from './FriendsScreen';
+import FriendsScreen from './components/mainscreens/FriendsScreen';
 
 const Stack = createNativeStackNavigator();
 

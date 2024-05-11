@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { db, auth } from './firebaseConfig';
+import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs } from 'firebase/firestore';
 import { Image } from 'expo-image';
 

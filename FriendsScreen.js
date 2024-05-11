@@ -1,72 +1,103 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { db, auth } from './firebaseConfig';
-import { doc, getDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, collection, where, getDocs } from 'firebase/firestore';
 
 function FriendsScreen({ navigation }) {
     const [friends, setFriends] = useState([]);
     const [invites, setInvites] = useState([]);
-    const [newFriendId, setNewFriendId] = useState('');
+    const [usernameToAdd, setUsernameToAdd] = useState('');
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         fetchFriendsAndInvites();
     }, []);
 
     const fetchFriendsAndInvites = async () => {
+        setLoading(true);
         const userRef = doc(db, 'users', auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
             const userData = userSnap.data();
-            const friendsData = await Promise.all(userData.friends.map(async friendId => {
-                const friendRef = doc(db, 'users', friendId);
-                const friendSnap = await getDoc(friendRef);
-                return friendSnap.exists() ? { id: friendId, ...friendSnap.data() } : null;
-            }));
-            setFriends(friendsData.filter(Boolean));
-            setInvites(userData.groupsInvitedTo);
+            setFriends(userData.friends || []);
+            setInvites(userData.friendRequests || []);
         }
+        setLoading(false);
     };
 
-    const removeFriend = async (friendId) => {
-        Alert.alert("Remove Friend", "Are you sure you want to remove this friend?", [
-            {
-                text: "Cancel",
-                style: "cancel"
-            },
-            {
-                text: "Remove",
-                onPress: async () => {
-                    const userRef = doc(db, 'users', auth.currentUser.uid);
-                    try {
-                        await updateDoc(userRef, {
-                            friends: arrayRemove(friendId)
-                        });
-                        setFriends(prev => prev.filter(f => f.id !== friendId));
-                        Alert.alert("Success", "Friend removed successfully.");
-                    } catch (error) {
-                        Alert.alert("Error", "Failed to remove friend. Please try again later.");
-                    }
-                }
-            }
-        ]);
-    };
-
-    const addFriend = async () => {
-        if (!newFriendId.trim()) {
-            Alert.alert("Error", "Please enter a valid friend ID.");
+    const sendFriendRequest = async () => {
+        if (!usernameToAdd.trim()) {
+            Alert.alert("Error", "Please enter a valid username.");
             return;
         }
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        try {
-            await updateDoc(userRef, {
-                friends: arrayUnion(newFriendId)
-            });
-            setNewFriendId('');
-            fetchFriendsAndInvites();  // Refresh the friend list
-            Alert.alert("Success", "Friend added successfully.");
-        } catch (error) {
-            Alert.alert("Error", "Failed to add friend. Please try again later.");
+        setLoading(true);
+        const usersQuery = query(collection(db, "users"), where("username", "==", usernameToAdd));
+        const querySnapshot = await getDocs(usersQuery);
+        if (querySnapshot.empty) {
+            setLoading(false);
+            Alert.alert("Error", "No user found with this username.");
+            return;
         }
+
+        const userDoc = querySnapshot.docs[0];
+        const targetUserId = userDoc.id;
+        if (targetUserId === auth.currentUser.uid) {
+            setLoading(false);
+            Alert.alert("Error", "You cannot send a friend request to yourself.");
+            return;
+        }
+
+        const targetUserRef = doc(db, 'users', targetUserId);
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        const currentUserSnap = await getDoc(currentUserRef);
+        const currentUserData = currentUserSnap.data();
+
+        if (currentUserData.friends && currentUserData.friends.includes(targetUserId)) {
+            setLoading(false);
+            Alert.alert("Error", "This user is already your friend.");
+            return;
+        }
+
+        if (currentUserData.sentRequests && currentUserData.sentRequests.includes(targetUserId)) {
+            setLoading(false);
+            Alert.alert("Error", "Friend request already sent.");
+            return;
+        }
+
+        await updateDoc(currentUserRef, {
+            sentRequests: arrayUnion(targetUserId)
+        });
+
+        await updateDoc(targetUserRef, {
+            friendRequests: arrayUnion({ from: auth.currentUser.uid, username: currentUserData.username })
+        });
+
+        setLoading(false);
+        Alert.alert("Success", "Friend request sent.");
+        setUsernameToAdd('');
+    };
+
+    const acceptFriendRequest = async (request) => {
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        const friendUserRef = doc(db, 'users', request.from);
+
+        await updateDoc(currentUserRef, {
+            friends: arrayUnion(request.from),
+            friendRequests: arrayRemove(request)
+        });
+        await updateDoc(friendUserRef, {
+            friends: arrayUnion(auth.currentUser.uid)
+        });
+
+        fetchFriendsAndInvites();
+    };
+
+    const denyFriendRequest = async (request) => {
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(currentUserRef, {
+            friendRequests: arrayRemove(request)
+        });
+        fetchFriendsAndInvites();
     };
 
     return (
@@ -74,37 +105,31 @@ function FriendsScreen({ navigation }) {
             <Text style={styles.title}>My Friends</Text>
             <TextInput
                 style={styles.input}
-                onChangeText={setNewFriendId}
-                value={newFriendId}
-                placeholder="Enter friend's ID"
+                onChangeText={setUsernameToAdd}
+                value={usernameToAdd}
+                placeholder="Enter username to add"
             />
-            <Button title="Add Friend" onPress={addFriend} />
+            <Button title="Send Friend Request" onPress={sendFriendRequest} disabled={loading} />
+            {loading && <ActivityIndicator size="large" color="#0000ff" />}
             <FlatList
                 data={friends}
-                keyExtractor={item => item.id}
+                keyExtractor={item => item}
                 renderItem={({ item }) => (
                     <View style={styles.friendItem}>
-                        <Text style={styles.friendName}>{item.username}</Text>
-                        <Button title="Remove" onPress={() => removeFriend(item.id)} />
-                        <Text style={styles.sectionTitle}>Groups:</Text>
-                        <FlatList
-                            data={item.groups}
-                            keyExtractor={group => group}
-                            renderItem={({ item: groupId }) => (
-                                <TouchableOpacity onPress={() => navigation.navigate('GroupDetails', { groupId })}>
-                                    <Text style={styles.groupLink}>{groupId}</Text>
-                                </TouchableOpacity>
-                            )}
-                        />
+                        <Text style={styles.friendName}>{item}</Text>
                     </View>
                 )}
             />
-            <Text style={styles.title}>Invitations</Text>
+            <Text style={styles.title}>Friend Requests</Text>
             <FlatList
                 data={invites}
-                keyExtractor={item => item}
+                keyExtractor={item => item.from}
                 renderItem={({ item }) => (
-                    <Text style={styles.inviteItem}>{item}</Text>
+                    <View style={styles.inviteItem}>
+                        <Text>{item.username}</Text>
+                        <Button title="Accept" onPress={() => acceptFriendRequest(item)} />
+                        <Button title="Deny" onPress={() => denyFriendRequest(item)} />
+                    </View>
                 )}
             />
         </View>
@@ -147,9 +172,12 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
     },
     inviteItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 10,
+        marginBottom: 10,
         backgroundColor: '#f9f9f9',
-        marginTop: 5,
     }
 });
 

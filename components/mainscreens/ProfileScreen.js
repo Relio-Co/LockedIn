@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { auth, db } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc} from 'firebase/firestore';
+import { View, Image, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { auth, db, storage } from '../../firebaseConfig';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
+
 
 function ProfileScreen({ route }) {
   const [username, setUsername] = useState('');
@@ -11,41 +15,91 @@ function ProfileScreen({ route }) {
   const [streaks, setStreaks] = useState({});
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        setUsername(userData.username);
-        setName(userData.name);
-        setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-        setPosts(userData.posts || []);
-        setStreaks(userData.streaks || {});
-      } else {
-        console.log('No such document!');
-      }
-    };
     fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      setUsername(userData.username);
+      setName(userData.name);
+      setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
+      setPosts(userData.posts || []);
+      setStreaks(userData.streaks || {});
+    } else {
+      console.log('No such document!');
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!username.trim()) return;
     const userRef = doc(db, 'users', auth.currentUser.uid);
     try {
-      await updateDoc(userRef, {
-        username: username,
-      });
+      await updateDoc(userRef, { username });
       alert('Profile updated successfully!');
     } catch (error) {
       alert('Failed to update profile: ' + error.message);
     }
   };
 
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert("You've refused to allow this app to access your photos!");
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    console.log(pickerResult);
+
+    if (pickerResult.cancelled) {
+      console.log(pickerResult.assets[0].uri);
+      return;
+    }
+
+    
+
+    // Image manipulation is optional and depends on use case
+    const manipResult = await manipulateAsync(
+      pickerResult.assets[0].uri,
+      [{ resize: { width: 200, height: 200 } }],
+      { compress: 0.1, format: SaveFormat.JPEG }
+    );
+
+    console.log(manipResult);
+
+    const uploadUrl = await uploadImage(manipResult.uri);
+    setProfilePicture(uploadUrl);
+    updateProfilePicture(uploadUrl);
+  };
+
+  const uploadImage = async (uri) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const fileRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+
+    await uploadBytes(fileRef, blob);
+    return getDownloadURL(fileRef);
+  };
+
+  const updateProfilePicture = async (url) => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    await updateDoc(userRef, { profilePicture: url });
+  };
+
   return (
     <View style={styles.container}>
-       <View style={styles.header}>
+      <View style={styles.header}>
         <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
         <Text style={styles.name}>{name}</Text>
+        <Button title="Change Picture" onPress={pickImage} />
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
@@ -71,7 +125,6 @@ function ProfileScreen({ route }) {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {

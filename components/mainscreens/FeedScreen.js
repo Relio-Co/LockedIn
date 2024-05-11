@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, FlatList, TouchableOpacity, RefreshControl, StyleSheet, Button, ScrollView, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { db, auth } from '../../firebaseConfig';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,7 +14,7 @@ function FeedScreen() {
   const [userGroups, setUserGroups] = useState([]);
   const [feedType, setFeedType] = useState('friends'); // 'friends' or 'forYou'
   const navigation = useNavigation();
-
+  
   const fetchUserDataAndPosts = async () => {
     const userRef = doc(db, 'users', auth.currentUser.uid);
     const docSnap = await getDoc(userRef);

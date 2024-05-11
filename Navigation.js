@@ -24,8 +24,8 @@ function Navigation() {
         <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Post" component={PostScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="UserProfile" component={UserProfileScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }}/>
@@ -33,7 +33,7 @@ function Navigation() {
         <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="GroupMembers" component={GroupMembersScreen} />
         <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
-        <Stack.Screen name="FriendsScreen" component={FriendsScreen} />
+        <Stack.Screen name="FriendsScreen" component={FriendsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

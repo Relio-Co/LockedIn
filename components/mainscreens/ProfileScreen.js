@@ -6,7 +6,6 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
 
-
 function ProfileScreen({ route }) {
   const [username, setUsername] = useState('');
   const [profilePicture, setProfilePicture] = useState('https://via.placeholder.com/100');
@@ -57,23 +56,16 @@ function ProfileScreen({ route }) {
       aspect: [1, 1],
       quality: 1,
     });
-    console.log(pickerResult);
 
     if (pickerResult.cancelled) {
-      console.log(pickerResult.assets[0].uri);
       return;
     }
 
-    
-
-    // Image manipulation is optional and depends on use case
     const manipResult = await manipulateAsync(
       pickerResult.assets[0].uri,
       [{ resize: { width: 200, height: 200 } }],
       { compress: 0.1, format: SaveFormat.JPEG }
     );
-
-    console.log(manipResult);
 
     const uploadUrl = await uploadImage(manipResult.uri);
     setProfilePicture(uploadUrl);
@@ -99,7 +91,7 @@ function ProfileScreen({ route }) {
       <View style={styles.header}>
         <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
         <Text style={styles.name}>{name}</Text>
-        <Button title="Change Picture" onPress={pickImage} />
+        <Button title="Change Picture" onPress={pickImage} color="#fff" />
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
@@ -108,7 +100,7 @@ function ProfileScreen({ route }) {
       <View style={styles.posts}>
         {posts.map((post, index) => (
           <View key={index} style={styles.post}>
-            <Text>{post.text}</Text>
+            <Text style={styles.postText}>{post.text}</Text>
           </View>
         ))}
       </View>
@@ -117,10 +109,11 @@ function ProfileScreen({ route }) {
         <TextInput
           style={styles.input}
           placeholder="Update username"
+          placeholderTextColor="#ccc"
           value={username}
           onChangeText={setUsername}
         />
-        <Button title="Update Profile" onPress={handleUpdateProfile} />
+        <Button title="Update Profile" onPress={handleUpdateProfile} color="#fff" />
       </View>
     </View>
   );
@@ -130,51 +123,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#000', // Dark background for black and white theme
+    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    marginBottom: 10,
   },
   profilePicture: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     marginRight: 10,
   },
   name: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: 'white', // White text for better contrast
   },
   stats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 10,
+    marginBottom: 10,
   },
   stat: {
     fontSize: 16,
+    color: 'white', // White text for stats
   },
   posts: {
-    padding: 10,
+    flex: 1,
   },
   post: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    borderBottomColor: '#232323', // Slightly lighter border for contrast
+  },
+  postText: {
+    color: 'white', // White text for post content
   },
   usernameSection: {
     padding: 10,
   },
   label: {
     fontSize: 16,
+    color: 'white', // White label text
   },
   input: {
-    width: '90%',
+    width: '100%',
     marginVertical: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'gray',
+    borderColor: '#fff', // White border for input
     borderRadius: 5,
+    color: 'white', // White input text
+    backgroundColor: '#191919', // Darker black for input background
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Button, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, getDocs, addDoc } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,7 @@ const blurhash =
   '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
 
 function PostDetailScreen({ route }) {
-  const { postId, groupId } = route.params;
+  const { postId } = route.params;
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -17,7 +17,7 @@ function PostDetailScreen({ route }) {
 
   useEffect(() => {
     async function fetchPostAndComments() {
-      const postRef = doc(db, 'posts', postId); // Directly referencing the posts collection
+      const postRef = doc(db, 'posts', postId);
       const postSnap = await getDoc(postRef);
 
       if (postSnap.exists()) {
@@ -46,7 +46,10 @@ function PostDetailScreen({ route }) {
   }, [postId]);
 
   const handleAddComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      Alert.alert("Error", "Please enter a comment before posting.");
+      return;
+    }
 
     const commentData = {
       text: newComment,
@@ -55,19 +58,19 @@ function PostDetailScreen({ route }) {
       likes: []
     };
 
-    await addDoc(collection(db, `posts/${postId}/comments`), commentData);
+    const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
     const userRef = doc(db, 'users', auth.currentUser.uid);
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
       commentData.username = userSnap.data().username;
-      commentData.id = new Date().getTime().toString(); // Temp ID for the newly added comment
+      commentData.id = newCommentRef.id; // Use Firestore generated ID for the comment
       setComments([...comments, commentData]);
     }
     setNewComment('');
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.container}>
       {post && (
         <>
           <Text style={styles.caption}>{post.caption}</Text>
@@ -89,7 +92,7 @@ function PostDetailScreen({ route }) {
                 <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.userId })}>
                   <Text style={styles.username}>{item.username}</Text>
                 </TouchableOpacity>
-                <Text>{item.text}</Text>
+                <Text style={styles.commentText}>{item.text}</Text>
                 <Text style={styles.timestamp}>{item.createdAt.toLocaleString()}</Text>
               </View>
             )}
@@ -99,8 +102,9 @@ function PostDetailScreen({ route }) {
             onChangeText={setNewComment}
             style={styles.input}
             placeholder="Write a comment..."
+            placeholderTextColor="#ccc"
           />
-          <Button title="Add Comment" onPress={handleAddComment} />
+          <Button title="Add Comment" onPress={handleAddComment} color="#fff" />
         </>
       )}
       {!post && <Text>Loading post...</Text>}
@@ -109,35 +113,53 @@ function PostDetailScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000', // Dark background
+    padding: 10,
+    paddingTop: 50,
+    paddingBottom: 100,
+  },
   image: {
     width: '100%',
     height: 300,
+    marginBottom: 10,
   },
   caption: {
     fontWeight: 'bold',
-    fontSize: 16,
-    padding: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: 'gray',
-    padding: 10,
-    margin: 10,
+    fontSize: 18,
+    color: 'white',
+    marginBottom: 10,
   },
   username: {
     fontWeight: 'bold',
-    color: 'blue',
-    margin: 10,
+    color: '#ccc', // Subtle contrast
+    fontSize: 16,
+    marginBottom: 5,
   },
   commentContainer: {
     padding: 10,
     borderBottomWidth: 1,
-    borderColor: 'lightgrey',
+    borderColor: '#282828', // Slightly lighter border for contrast
+    marginBottom: 5,
+  },
+  commentText: {
+    color: 'white', // White text for comments
+    fontSize: 14,
   },
   timestamp: {
     fontSize: 12,
-    color: 'grey',
+    color: '#7e7e7e', // Grey for timestamps
   },
+  input: {
+    borderWidth: 1,
+    borderColor: '#fff', // White border for input
+    padding: 10,
+    marginVertical: 10,
+    color: 'white', // White text for input
+    backgroundColor: '#191919', // Darker black for input background
+    borderRadius: 5,
+  }
 });
 
 export default PostDetailScreen;

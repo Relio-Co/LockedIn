@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#000', // Dark background for black and white theme
+    paddingTop: 50,
   },
   header: {
     fontSize: 22,

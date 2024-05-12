@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Button, Image, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Button, Image, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { storage, db, auth } from '../../firebaseConfig';
@@ -25,7 +25,6 @@ function PostScreen({ route }) {
         public: doc.data().public
       }));
       setGroups(groupsData);
-      // Set default group only if none selected and not directed from a group
       if (!selectedGroup && groupsData.length > 0 && !groupId) {
         setSelectedGroup(groupsData[0].id);
       }
@@ -47,13 +46,10 @@ function PostScreen({ route }) {
       quality: 1,
     });
 
-    if (result.cancelled) {
-      setImage(null);
-      return;
+    if (!result.cancelled) {
+      const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+      setImage(manipResult.uri);
     }
-
-    const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.75, format: SaveFormat.JPEG });
-    setImage(manipResult.uri);
   };
 
   const handleUpload = async () => {
@@ -65,13 +61,6 @@ function PostScreen({ route }) {
     setUploading(true);
   
     try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        throw new Error("User does not exist");
-      }
-      const username = userSnap.data().username;  // Assuming username is stored under the 'username' key
-  
       const response = await fetch(image);
       const blob = await response.blob();
       const fileRef = ref(storage, `posts/${Date.now()}`);
@@ -83,18 +72,17 @@ function PostScreen({ route }) {
         imageUrl,
         caption,
         createdBy: auth.currentUser.uid,
-        createdByUsername: username, // Now correctly using the fetched username
         createdAt: new Date(),
         groupName: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
         groupId: selectedGroup,
         isPublic: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
       };
   
-      const newPostRef = await addDoc(collection(db, 'posts'), newPost);
+      await addDoc(collection(db, 'posts'), newPost);
   
       if (selectedGroup) {
         await updateDoc(doc(db, 'groups', selectedGroup), {
-          posts: arrayUnion(newPostRef.id)
+          posts: arrayUnion(newPost)
         });
       }
   
@@ -102,7 +90,6 @@ function PostScreen({ route }) {
       setImage(null);
       setCaption('');
     } catch (error) {
-      console.error("Error uploading post:", error);
       Alert.alert("Upload Error", error.message);
     } finally {
       setUploading(false);
@@ -111,25 +98,30 @@ function PostScreen({ route }) {
 
   return (
     <View style={styles.container}>
-      <Button title="Pick an image from camera roll" onPress={pickImage} />
+      <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+        <Text style={styles.buttonText}>Pick an image from camera roll</Text>
+      </TouchableOpacity>
       {image && <Image source={{ uri: image }} style={styles.image} />}
       <TextInput
         style={styles.input}
         placeholder="Write a caption..."
+        placeholderTextColor="#ccc"
         value={caption}
         onChangeText={setCaption}
         multiline
       />
       <RNPickerSelect
         onValueChange={(value) => setSelectedGroup(value)}
-        items={[{ label: 'No Group', value: null }, ...groups.map(group => ({ label: group.name, value: group.id }))] }
+        items={groups.map(group => ({ label: group.name, value: group.id }))}
         style={pickerSelectStyles}
         value={selectedGroup}
         useNativeAndroidPickerStyle={false}
         placeholder={{ label: "Select a group...", value: null }}
       />
-      <Button title="Upload Post" onPress={handleUpload} disabled={uploading} />
-      {uploading && <Text>Uploading...</Text>}
+      <TouchableOpacity style={styles.uploadButton} onPress={handleUpload} disabled={uploading}>
+        <Text style={styles.buttonText}>Upload Post</Text>
+      </TouchableOpacity>
+      {uploading && <ActivityIndicator size="large" color="#fff" />}
     </View>
   );
 }
@@ -140,20 +132,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+    backgroundColor: '#000', // Dark theme background
   },
   image: {
     width: 300,
     height: 300,
-    marginBottom: 10,
+    borderRadius: 10,
+    marginBottom: 20,
   },
   input: {
     width: '90%',
-    marginVertical: 10,
+    minHeight: 100,
+    padding: 15,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    color: 'white',
+    backgroundColor: '#191919',
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  imagePickerButton: {
+    marginBottom: 20,
     padding: 10,
-    borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 5,
-    textAlignVertical: 'top',
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    backgroundColor: '#333',
+  },
+  uploadButton: {
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    backgroundColor: '#333',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
   }
 });
 
@@ -163,20 +179,21 @@ const pickerSelectStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'gray',
+    borderColor: '#fff',
     borderRadius: 4,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    color: 'white',
+    paddingRight: 30,
   },
   inputAndroid: {
     fontSize: 16,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'purple',
+    borderWidth: 1,
+    borderColor: '#fff',
     borderRadius: 8,
-    color: 'black',
-    paddingRight: 30, // to ensure the text is never behind the icon
+    color: 'white',
+    paddingRight: 30,
   },
 });
+
 export default PostScreen;

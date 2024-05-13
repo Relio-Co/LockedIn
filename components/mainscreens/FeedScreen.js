@@ -14,28 +14,65 @@ function FeedScreen() {
   const [userGroups, setUserGroups] = useState([]);
   const [feedType, setFeedType] = useState('friends'); // 'friends' or 'forYou'
   const navigation = useNavigation();
-  
+
+  const isToday = (date) => {
+    const today = new Date();
+    const dateToCheck = typeof date === 'object' ? date : new Date(date);
+
+    return (
+      dateToCheck.getDate() === today.getDate() &&
+      dateToCheck.getMonth() === today.getMonth() &&
+      dateToCheck.getFullYear() === today.getFullYear()
+    );
+  };
+
   const fetchUserDataAndPosts = async () => {
     const userRef = doc(db, 'users', auth.currentUser.uid);
     const docSnap = await getDoc(userRef);
     if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
-      // This ensures data is fetched only if there's a change
       const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
       setUserGroups(userGroups);
       AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
   
-      const postsQuery = await getDocs(collection(db, 'posts'));
-      const allPosts = postsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const today = new Date();
-      let filteredPosts;
-
-if (feedType === 'friends') {
-  filteredPosts = allPosts.filter(post => userGroups.includes(post.groupId));
-} else {
-  filteredPosts = allPosts.filter(post => post.isPublic);
-}
-
-setPosts(filteredPosts);
+      console.log('User Groups:', userGroups);
+  
+      const groupPosts = await Promise.all(
+        userGroups.map(async (groupId) => {
+          const groupRef = doc(db, 'groups', groupId);
+          const groupSnap = await getDoc(groupRef);
+          const groupData = groupSnap.data();
+  
+          const postIds = groupData?.posts || [];
+          console.log(`Group ${groupId} Post IDs:`, postIds);
+  
+          const postDocs = await Promise.all(
+            postIds.map(async (postId) => {
+              const postRef = doc(db, 'posts', postId);
+              const postSnap = await getDoc(postRef);
+              return postSnap.data();
+            })
+          );
+  
+          console.log(`Group ${groupId} Posts:`, postDocs);
+  
+          const memberIds = groupData?.members || [];
+          const userProfilesQuery = await getDocs(
+            query(collection(db, 'users'), where('__name__', 'in', memberIds))
+          );
+          const userProfiles = userProfilesQuery.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+  
+          console.log(`Group ${groupId} User Profiles:`, userProfiles);
+  
+          return { groupId, posts: postDocs, userProfiles };
+        })
+      );
+  
+      console.log('All Group Posts:', groupPosts);
+  
+      setPosts(groupPosts);
     }
   };
 
@@ -59,55 +96,74 @@ setPosts(filteredPosts);
   return (
     <View style={styles.container}>
       <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-      <TouchableOpacity style={styles.toggleButton}>
-        <Text style={styles.toggleText} onPress={() => setFeedType('friends')} >Friends</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.toggleButton}>
-        <Text style={styles.toggleText} onPress={() => setFeedType('for you')}>For You</Text>
-      </TouchableOpacity>
-      <Button title="Groups" style={styles.button} onPress={() => navigation.navigate('Groups')} />
-    </ScrollView>
+        <TouchableOpacity style={styles.toggleButton}>
+          <Text style={styles.toggleText} onPress={() => setFeedType('friends')}>Friends</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.toggleButton}>
+          <Text style={styles.toggleText} onPress={() => setFeedType('for you')}>For You</Text>
+        </TouchableOpacity>
+        <Button title="Groups" style={styles.button} onPress={() => navigation.navigate('Groups')} />
+      </ScrollView>
       <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={[styles.postContainer, userGroups.includes(item.groupId) ? styles.subscribed : {}]} >
-            <View style={styles.imageHeader}>
-              <Text style={[styles.nameText, styles.groupName]}>{item.createdByUsername} <Text style={styles.groupText}>{item.groupName || ""}</Text></Text>
-              {item.isPublic ? <Icon name="unlock" size={24} style={styles.lockIcon} /> : <Icon name="lock" size={24} style={styles.lockIcon} />}
+  data={posts}
+  keyExtractor={(item) => item.groupId}
+  renderItem={({ item }) => (
+    <View style={styles.groupCard}>
+      <Text style={styles.groupName}>{item.groupId}</Text>
+      <View style={styles.postGrid}>
+        {item.userProfiles.map((profile) => {
+          const post = item.posts.find(
+            (post) =>
+              post.createdBy === profile.id &&
+              isToday(post.createdAt.toDate())
+          );
+          console.log(`User ${profile.id} Post for Today:`, post);
+          return (
+            <View key={profile.id} style={styles.postTile}>
+              {post ? (
+                <Image
+                  style={styles.postImage}
+                  source={{ uri: post.imageUrl }}
+                  placeholder={{ uri: blurhash }}
+                  contentFit="cover"
+                  transition={1000}
+                />
+              ) : profile.profilePicture ? (
+                <Image
+                  style={styles.profileImage}
+                  source={{ uri: profile.profilePicture }}
+                />
+              ) : (
+                <View style={[styles.profileImage, styles.noProfilePic]}>
+                  <Text style={styles.noProfilePicText}>No Profile Picture</Text>
+                </View>
+              )}
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('PostDetail', { postId: item.id })}>
-              <Image
-                style={styles.image}
-                source={{ uri: item.imageUrl }}
-                placeholder={{ uri: blurhash }}
-                contentFit="cover"
-                transition={1000}
-              />
-              <Text style={styles.caption}>{item.caption}</Text>
+          );
+        })}
+      </View>
+    </View>
+  )}
+  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+/>
+      <View style={styles.floatingButtonsContainer}>
+        <View style={styles.floatingButtonsBackground}>
+          <View style={styles.floatingButtons}>
+            <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
+              <Icon name="plus" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('FriendsScreen')}>
+              <Icon name="search" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
+              <Icon name="user" size={24} color="white" />
             </TouchableOpacity>
           </View>
-        )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        />
-        <View style={styles.floatingButtonsContainer}>
-      <View style={styles.floatingButtonsBackground}>
-        <View style={styles.floatingButtons}>
-          <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
-            <Icon name="plus" size={24} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('FriendsScreen')}>
-            <Icon name="search" size={24} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
-            <Icon name="user" size={24} color="white" />
-          </TouchableOpacity>
         </View>
       </View>
     </View>
-      </View>
-    );
-  }
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -235,6 +291,61 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 16,
     fontWeight: '500',
+  }, groupCard: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    margin: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  groupName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  postContainer: {
+    marginBottom: 10,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+  },
+  caption: {
+    fontSize: 16,
+    color: '#666',
+    padding: 10,
+  },postGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  postTile: {
+    width: '25%',
+    aspectRatio: 1,
+    padding: 2,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },noProfilePic: {
+    backgroundColor: '#ccc',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noProfilePicText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
 

@@ -12,7 +12,7 @@ const blurhash = '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWX
 function FeedScreen() {
   const [posts, setPosts] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
-  const [feedType, setFeedType] = useState('friends'); // 'friends' or 'forYou'
+  const [feedType, setFeedType] = useState('friends');
   const navigation = useNavigation();
 
   const isToday = (date) => {
@@ -33,18 +33,18 @@ function FeedScreen() {
       const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
       setUserGroups(userGroups);
       AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
-  
+
       console.log('User Groups:', userGroups);
-  
+
       const groupPosts = await Promise.all(
         userGroups.map(async (groupId) => {
           const groupRef = doc(db, 'groups', groupId);
           const groupSnap = await getDoc(groupRef);
           const groupData = groupSnap.data();
-  
+
           const postIds = groupData?.posts || [];
           console.log(`Group ${groupId} Post IDs:`, postIds);
-  
+
           const postDocs = await Promise.all(
             postIds.map(async (postId) => {
               const postRef = doc(db, 'posts', postId);
@@ -52,9 +52,9 @@ function FeedScreen() {
               return postSnap.data();
             })
           );
-  
+
           console.log(`Group ${groupId} Posts:`, postDocs);
-  
+
           const memberIds = groupData?.members || [];
           const userProfilesQuery = await getDocs(
             query(collection(db, 'users'), where('__name__', 'in', memberIds))
@@ -63,15 +63,15 @@ function FeedScreen() {
             id: doc.id,
             ...doc.data(),
           }));
-  
+
           console.log(`Group ${groupId} User Profiles:`, userProfiles);
-  
+
           return { groupId, posts: postDocs, userProfiles };
         })
       );
-  
+
       console.log('All Group Posts:', groupPosts);
-  
+
       setPosts(groupPosts);
     }
   };
@@ -104,48 +104,78 @@ function FeedScreen() {
         </TouchableOpacity>
         <Button title="Groups" style={styles.button} onPress={() => navigation.navigate('Groups')} />
       </ScrollView>
-      <FlatList
-  data={posts}
-  keyExtractor={(item) => item.groupId}
-  renderItem={({ item }) => (
-    <View style={styles.groupCard}>
-      <Text style={styles.groupName}>{item.groupId}</Text>
-      <View style={styles.postGrid}>
-        {item.userProfiles.map((profile) => {
-          const post = item.posts.find(
-            (post) =>
-              post.createdBy === profile.id &&
-              isToday(post.createdAt.toDate())
-          );
-          console.log(`User ${profile.id} Post for Today:`, post);
-          return (
-            <View key={profile.id} style={styles.postTile}>
-              {post ? (
+
+      {feedType === 'for you' ? (
+        <FlatList
+          data={posts.flatMap(group => group.posts.filter(post => post.isPublic))}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.postContainer}>
+              <View style={styles.imageHeader}>
+                <Text style={[styles.nameText, styles.groupName]}>
+                  {item.createdByUsername} <Text style={styles.groupText}>{item.groupName || ""}</Text>
+                </Text>
+                {item.isPublic ? <Icon name="unlock" size={24} style={styles.lockIcon} /> : <Icon name="lock" size={24} style={styles.lockIcon} />}
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('PostDetail', { postId: item.id })}>
                 <Image
-                  style={styles.postImage}
-                  source={{ uri: post.imageUrl }}
+                  style={styles.image}
+                  source={{ uri: item.imageUrl }}
                   placeholder={{ uri: blurhash }}
                   contentFit="cover"
                   transition={1000}
                 />
-              ) : profile.profilePicture ? (
-                <Image
-                  style={styles.profileImage}
-                  source={{ uri: profile.profilePicture }}
-                />
-              ) : (
-                <View style={[styles.profileImage, styles.noProfilePic]}>
-                  <Text style={styles.noProfilePicText}>No Profile Picture</Text>
-                </View>
-              )}
+                <Text style={styles.caption}>{item.caption}</Text>
+              </TouchableOpacity>
             </View>
-          );
-        })}
-      </View>
-    </View>
-  )}
-  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-/>
+          )}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        />
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.groupId}
+          renderItem={({ item }) => (
+            <View style={styles.groupCard}>
+              <Text style={styles.groupName}>{item.groupId}</Text>
+              <View style={styles.postGrid}>
+                {item.userProfiles.map((profile) => {
+                  const post = item.posts.find(
+                    (post) =>
+                      post.createdBy === profile.id &&
+                      isToday(post.createdAt.toDate())
+                  );
+                  console.log(`User ${profile.id} Post for Today:`, post);
+                  return (
+                    <View key={profile.id} style={styles.postTile}>
+                      {post ? (
+                        <Image
+                          style={styles.postImage}
+                          source={{ uri: post.imageUrl }}
+                          placeholder={{ uri: blurhash }}
+                          contentFit="cover"
+                          transition={1000}
+                        />
+                      ) : profile.profilePicture ? (
+                        <Image
+                          style={styles.profileImage}
+                          source={{ uri: profile.profilePicture }}
+                        />
+                      ) : (
+                        <View style={[styles.profileImage, styles.noProfilePic]}>
+                          <Text style={styles.noProfilePicText}>No Profile Picture</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        />
+      )}
+
       <View style={styles.floatingButtonsContainer}>
         <View style={styles.floatingButtonsBackground}>
           <View style={styles.floatingButtons}>
@@ -172,10 +202,9 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   subscribed: {
-    borderColor: 'blue', // Blue border for subscribed posts
+    borderColor: 'blue',
     borderWidth: 1,
   },
-  
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -249,7 +278,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     padding: 10,
-  },  floatingButtonsContainer: {
+  },
+  floatingButtonsContainer: {
     position: 'absolute',
     bottom: 20,
     left: '50%',
@@ -291,7 +321,8 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 16,
     fontWeight: '500',
-  }, groupCard: {
+  },
+  groupCard: {
     padding: 10,
     borderRadius: 10,
     backgroundColor: '#fff',
@@ -319,7 +350,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     padding: 10,
-  },postGrid: {
+  },
+  postGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
@@ -338,7 +370,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 50,
-  },noProfilePic: {
+  },
+  noProfilePic: {
     backgroundColor: '#ccc',
     justifyContent: 'center',
     alignItems: 'center',

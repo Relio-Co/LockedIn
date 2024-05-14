@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,12 +9,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 function GroupsScreen() {
   const [groups, setGroups] = useState([]);
   const [publicGroups, setPublicGroups] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
 
   useEffect(() => {
     loadGroupsFromStorage();
     fetchPublicGroups();
+    fetchInvites();
   }, []);
 
   const loadGroupsFromStorage = async () => {
@@ -41,13 +43,40 @@ function GroupsScreen() {
   };
 
   const fetchPublicGroups = async () => {
-    const publicGroupsQuery = query(collection(db, "groups"), where("isPublic", "==", true));
+    const publicGroupsQuery = query(collection(db, "groups"), where("public", "==", true));
     const querySnapshot = await getDocs(publicGroupsQuery);
     const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     setPublicGroups(publicGroupsData);
   };
 
+  const fetchInvites = async () => {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const groupInvites = docSnap.data().groupsInvitedTo || [];
+      const invitesQuery = await Promise.all(groupInvites.map(groupId => getDoc(doc(db, "groups", groupId))));
+      const invitesData = invitesQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      setInvites(invitesData);
+    }
+  };
+
   const getMemberCount = (members) => members ? members.length : '0';
+
+  const handleJoinGroup = async (groupId) => {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    const groupRef = doc(db, "groups", groupId);
+
+    await updateDoc(userRef, {
+      groups: arrayUnion(groupId)
+    });
+
+    await updateDoc(groupRef, {
+      members: arrayUnion(auth.currentUser.uid)
+    });
+
+    fetchGroups();
+    Alert.alert("Success", "You have joined the group.");
+  };
 
   return (
     <View style={styles.container}>
@@ -68,23 +97,45 @@ function GroupsScreen() {
           </TouchableOpacity>
         )}
         ListHeaderComponent={() => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>Your Groups</Text>
-          </View>
+          <>
+            {invites.length > 0 && (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText}>Group Invites</Text>
+                {invites.map(invite => (
+                  <TouchableOpacity key={invite.id} style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: invite.id })}>
+                    <Image source={{ uri: invite.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
+                    <Text style={styles.listItemText}>{invite.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>Your Groups</Text>
+            </View>
+          </>
         )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={fetchGroups} />
         }
       />
-      <Text style={styles.sectionHeaderText}>Challenges</Text>
       <FlatList
         data={publicGroups}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: item.id })}>
+          <View style={styles.listItemContainer}>
             <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
-            <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
-          </TouchableOpacity>
+            <View style={styles.publicGroupInfo}>
+              <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
+              <TouchableOpacity style={styles.joinButton} onPress={() => handleJoinGroup(item.id)}>
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        ListHeaderComponent={() => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>Public Groups</Text>
+          </View>
         )}
       />
     </View>
@@ -140,6 +191,22 @@ const styles = StyleSheet.create({
   listItemText: {
     fontSize: 18,
     color: 'white',
+  },
+  publicGroupInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+  },
+  joinButton: {
+    backgroundColor: '#1E90FF',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  joinButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   sectionHeader: {
     paddingVertical: 10,

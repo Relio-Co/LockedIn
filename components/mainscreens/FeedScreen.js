@@ -47,7 +47,7 @@ function FeedScreen() {
             postIds.map(async (postId) => {
               const postRef = doc(db, 'posts', postId);
               const postSnap = await getDoc(postRef);
-              return postSnap.data();
+              return { ...postSnap.data(), groupName: groupData.name };
             })
           );
 
@@ -60,7 +60,7 @@ function FeedScreen() {
             ...doc.data(),
           }));
 
-          return { groupId, posts: postDocs, userProfiles };
+          return { groupId, name: groupData.name, posts: postDocs, userProfiles };
         })
       );
 
@@ -108,7 +108,7 @@ function FeedScreen() {
             keyExtractor={(item) => item.groupId}
             renderItem={({ item }) => (
               <View style={styles.groupCard}>
-                <Text style={styles.groupName}>{item.groupId}</Text>
+                <Text style={styles.groupName}>{item.name}</Text>
                 <View style={styles.postGrid}>
                   {item.userProfiles.map((profile) => {
                     const post = item.posts.find(
@@ -175,6 +175,9 @@ function FeedScreen() {
       </PagerView>
 
       <View style={styles.floatingButtonsContainer}>
+      <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Groups')}>
+          <Icon name="users" size={24} color="white" />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
           <Icon name="plus" size={24} color="white" />
         </TouchableOpacity>

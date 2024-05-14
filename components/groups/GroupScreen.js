@@ -1,7 +1,3 @@
-// this page loads the groups the user is part of
-
-// TODO: load the user's group invites as well
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
@@ -98,7 +94,7 @@ function GroupsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: 'black',
     paddingTop: 40,
   },
   header: {
@@ -108,12 +104,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#CCC',
+    borderBottomColor: 'white',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4CAF50',
+    backgroundColor: 'black',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 5,
@@ -125,7 +121,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: 'white',
   },
   listItemContainer: {
     flexDirection: 'row',
@@ -133,17 +129,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#CCC',
+    borderBottomColor: 'white',
   },
   profilePic: {
     width: 50,
     height: 50,
-    borderRadius: 10, // Slightly rounded corners
+    borderRadius: 10,
     marginRight: 10,
   },
   listItemText: {
     fontSize: 18,
-    color: '#333',
+    color: 'white',
   },
   sectionHeader: {
     paddingVertical: 10,
@@ -152,7 +148,7 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: 'white',
   },
 });
 

@@ -13,7 +13,7 @@ import CreateGroupScreen from './components/groups/CreateGroupScreen';
 import GroupDetailsScreen from './components/groups/GroupFeedScreen';
 import GroupMembersScreen from './components/groups/GroupMembersScreen';
 import GroupSettingsScreen from './components/groups/GroupSettingsScreen';
-import FriendsScreen from './FriendsScreen';
+import FriendsScreen from './components/mainscreens/FriendsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,17 +23,17 @@ function Navigation() {
       <Stack.Navigator initialRouteName="Auth">
         <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Post" component={PostScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-        <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Post" component={PostScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }}/>
-        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} options={{ headerShown: false }}/>
-        <Stack.Screen name="GroupMembers" component={GroupMembersScreen} />
-        <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} />
-        <Stack.Screen name="FriendsScreen" component={FriendsScreen} />
+        <Stack.Screen name="GroupMembers" component={GroupMembersScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="FriendsScreen" component={FriendsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

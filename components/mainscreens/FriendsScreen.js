@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { db, auth } from './firebaseConfig';
+import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs } from 'firebase/firestore';
 import { Image } from 'expo-image';
-
 
 function FriendsScreen({ navigation }) {
     const [friends, setFriends] = useState([]);
@@ -27,7 +26,7 @@ function FriendsScreen({ navigation }) {
           setFriends(friendsData);
         }
         setLoading(false);
-      };
+    };
 
     const sendFriendRequest = async () => {
         if (!usernameToAdd.trim()) {
@@ -100,15 +99,16 @@ function FriendsScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-           <Text style={styles.title}>My Friends</Text>
+            <Text style={styles.title}>My Friends</Text>
             <TextInput
                 style={styles.input}
                 onChangeText={setUsernameToAdd}
                 value={usernameToAdd}
                 placeholder="Enter username to add"
+                placeholderTextColor="#ccc"
             />
-            <Button title="Send Friend Request" onPress={sendFriendRequest} disabled={loading} />
-            {loading && <ActivityIndicator size="large" color="#0000ff" />}
+            <Button title="Send Friend Request" onPress={sendFriendRequest} disabled={loading} color="#fff" />
+            {loading && <ActivityIndicator size="large" color="#fff" />}
             <FlatList
                 data={friends}
                 keyExtractor={item => item.id}
@@ -127,9 +127,9 @@ function FriendsScreen({ navigation }) {
                 keyExtractor={item => item.from}
                 renderItem={({ item }) => (
                     <View style={styles.inviteItem}>
-                        <Text>{item.username}</Text>
-                        <Button title="Accept" onPress={() => acceptFriendRequest(item)} />
-                        <Button title="Deny" onPress={() => denyFriendRequest(item)} />
+                        <Text style={styles.inviteText}>{item.username}</Text>
+                        <Button title="Accept" onPress={() => acceptFriendRequest(item)} color="#fff" />
+                        <Button title="Deny" onPress={() => denyFriendRequest(item)} color="#fff" />
                     </View>
                 )}
             />
@@ -141,11 +141,14 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 10,
+        backgroundColor: '#000', // Black background
+        paddingTop: 50,
     },
     title: {
         fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 10,
+        color: 'white', // White text for titles
     },
     input: {
         height: 40,
@@ -153,13 +156,16 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         padding: 10,
         borderRadius: 5,
+        borderColor: 'white', // White border for input
+        color: 'white', // White text input
+        backgroundColor: '#191919', // Darker black for input background
     },
     friendItem: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 10,
         padding: 10,
-        backgroundColor: '#f0f0f0',
+        backgroundColor: '#232323', // Dark gray for items
     },
     profilePic: {
         width: 50,
@@ -170,7 +176,19 @@ const styles = StyleSheet.create({
     friendName: {
         fontSize: 16,
         fontWeight: '500',
+        color: 'white', // White text for names
     },
+    inviteItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        padding: 10,
+        backgroundColor: '#232323', // Consistent with friendItem
+    },
+    inviteText: {
+        color: 'white', // Consistent text color
+    }
 });
 
 export default FriendsScreen;

@@ -94,7 +94,7 @@ function FeedScreen() {
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
           <Icon name="plus" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Search')}>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('FriendsScreen')}>
           <Icon name="search" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>

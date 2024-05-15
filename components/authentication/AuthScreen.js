@@ -1,6 +1,4 @@
-/* [AI Doc Review] This React Native file implements a login and registration screen for an app, using Firebase authentication and storage. It allows users to log in with their email and password, or create a new account if they don't have one yet. The screen also includes buttons to populate admin details (presumably for testing purposes) and to switch between login and registration modes. */
-/* [AI Bug Review] The bug or fault is that the `setEmail` and `setPassword` functions are not defined. They should be replaced with the corresponding setter functions `setEmail` and `setPassword` that were defined earlier in the code, i.e., `setEmail` and `setPassword`.*/
- import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, TextInput, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { auth, db } from '../../firebaseConfig';

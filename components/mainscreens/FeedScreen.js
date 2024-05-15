@@ -1,7 +1,5 @@
-/* [AI Doc Review] This React Native file renders a feed screen that displays groups and posts. It uses two `FlatList` components to display the groups and posts, with each group/post containing information such as its name, image, caption, and whether it's public or not. The screen also includes floating buttons for navigation and profile management. */
-/* [AI Bug Review] One possible bug or fault in this React Native code is the potential for a `KeyError` when rendering the `FlatList` components, particularly the second one. The issue lies in the fact that the `keyExtractor` function (`(item) => item.id`) might not be unique for all items in the data array, which could lead to unexpected behavior or errors when the list is rendered. To fix this, you should ensure that each item has a unique key by using a combination of properties from your data or generating a random key if necessary.*/
- import React, { useEffect, useState } from 'react';
-import { View, FlatList, TouchableOpacity, RefreshControl, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, FlatList, TouchableOpacity, RefreshControl, StyleSheet, Text, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { db, auth } from '../../firebaseConfig';
 import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
@@ -12,11 +10,24 @@ import PagerView from 'react-native-pager-view';
 
 const blurhash = '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
 
+const fetchInvitesCount = async () => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const friendInvites = userData.friendRequests || [];
+        const groupInvites = userData.groupsInvitedTo || [];
+        return friendInvites.length + groupInvites.length;
+    }
+    return 0;
+};
+
 function FeedScreen() {
   const [posts, setPosts] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [feedType, setFeedType] = useState(0);
+  const [invitesCount, setInvitesCount] = useState(0);
   const navigation = useNavigation();
 
   const isToday = (date) => {
@@ -31,56 +42,70 @@ function FeedScreen() {
   };
 
   const fetchUserDataAndPosts = async () => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const docSnap = await getDoc(userRef);
-    if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
-      const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
-      setUserGroups(userGroups);
-      AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
+        const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
+        setUserGroups(userGroups);
+        AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
 
-      const groupPosts = await Promise.all(
-        userGroups.map(async (groupId) => {
-          const groupRef = doc(db, 'groups', groupId);
-          const groupSnap = await getDoc(groupRef);
-          const groupData = groupSnap.data();
+        const groupPosts = await Promise.all(
+          userGroups.map(async (groupId) => {
+            const groupRef = doc(db, 'groups', groupId);
+            const groupSnap = await getDoc(groupRef);
+            const groupData = groupSnap.data();
 
-          const postIds = groupData?.posts || [];
-          const postDocs = await Promise.all(
-            postIds.map(async (postId) => {
-              const postRef = doc(db, 'posts', postId);
-              const postSnap = await getDoc(postRef);
-              return { ...postSnap.data(), groupName: groupData.name };
-            })
-          );
+            const postIds = groupData?.posts || [];
+            const postDocs = await Promise.all(
+              postIds.map(async (postId) => {
+                const postRef = doc(db, 'posts', postId);
+                const postSnap = await getDoc(postRef);
+                return { ...postSnap.data(), groupName: groupData.name, id: postSnap.id };
+              })
+            );
 
-          const memberIds = groupData?.members || [];
-          const userProfilesQuery = await getDocs(
-            query(collection(db, 'users'), where('__name__', 'in', memberIds))
-          );
-          const userProfiles = userProfilesQuery.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+            const memberIds = groupData?.members || [];
+            const userProfilesQuery = await getDocs(
+              query(collection(db, 'users'), where('__name__', 'in', memberIds))
+            );
+            const userProfiles = userProfilesQuery.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
 
-          return { groupId, name: groupData.name, posts: postDocs, userProfiles };
-        })
-      );
+            return { groupId, name: groupData.name, posts: postDocs, userProfiles };
+          })
+        );
 
-      setPosts(groupPosts);
+        setPosts(groupPosts);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch user data and posts');
     }
   };
 
   useEffect(() => {
     fetchUserDataAndPosts();
+    fetchInvitesCount().then(setInvitesCount);
   }, [feedType]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await fetchUserDataAndPosts();
+      await fetchInvitesCount().then(setInvitesCount);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handlePostPress = (postId, groupId) => {
+    navigation.navigate('PostDetail', { postId, groupId });
+  };
+
+  const handleProfilePress = (userId) => {
+    navigation.navigate('UserProfile', { userId });
   };
 
   return (
@@ -121,22 +146,28 @@ function FeedScreen() {
                     return (
                       <View key={profile.id} style={styles.postTile}>
                         {post ? (
-                          <Image
-                            style={styles.postImage}
-                            source={{ uri: post.imageUrl }}
-                            placeholder={{ uri: blurhash }}
-                            contentFit="cover"
-                            transition={1000}
-                          />
+                          <TouchableOpacity onPress={() => handlePostPress(post.id, item.groupId)}>
+                            <Image
+                              style={styles.postImage}
+                              source={{ uri: post.imageUrl }}
+                              placeholder={{ uri: blurhash }}
+                              contentFit="cover"
+                              transition={1000}
+                            />
+                          </TouchableOpacity>
                         ) : profile.profilePicture ? (
-                          <Image
-                            style={styles.profileImage}
-                            source={{ uri: profile.profilePicture }}
-                          />
+                          <TouchableOpacity onPress={() => handleProfilePress(profile.id)}>
+                            <Image
+                              style={styles.profileImage}
+                              source={{ uri: profile.profilePicture }}
+                            />
+                          </TouchableOpacity>
                         ) : (
-                          <View style={[styles.profileImage, styles.noProfilePic]}>
-                            <Text style={styles.noProfilePicText}>No Profile Picture</Text>
-                          </View>
+                          <TouchableOpacity onPress={() => handleProfilePress(profile.id)}>
+                            <View style={[styles.profileImage, styles.noProfilePic]}>
+                              <Text style={styles.noProfilePicText}>No Profile Picture</Text>
+                            </View>
+                          </TouchableOpacity>
                         )}
                       </View>
                     );
@@ -154,12 +185,14 @@ function FeedScreen() {
             renderItem={({ item }) => (
               <View style={styles.postContainer}>
                 <View style={styles.imageHeader}>
-                  <Text style={[styles.nameText, styles.groupName]}>
-                    {item.createdByUsername} <Text style={styles.groupText}>{item.groupName || ""}</Text>
-                  </Text>
+                  <TouchableOpacity onPress={() => handleProfilePress(item.createdBy)}>
+                    <Text style={[styles.nameText, styles.groupName]}>
+                      {item.createdByUsername} <Text style={styles.groupText}>{item.groupName || ""}</Text>
+                    </Text>
+                  </TouchableOpacity>
                   <Icon name={item.isPublic ? "unlock" : "lock"} size={24} style={styles.lockIcon} />
                 </View>
-                <TouchableOpacity onPress={() => {console.log(item.id); navigation.navigate('PostDetail', { postId: item.id }); }}>
+                <TouchableOpacity onPress={() => handlePostPress(item.id, item.groupId)}>
                   <Image
                     style={styles.image}
                     source={{ uri: item.imageUrl }}
@@ -177,142 +210,156 @@ function FeedScreen() {
       </PagerView>
 
       <View style={styles.floatingButtonsContainer}>
-      <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Groups')}>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('NotificationsScreen')}>
+          <Icon name="bell" size={24} color="white" />
+          {invitesCount > 0 && <View style={styles.notificationDot} />}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Groups')}>
           <Icon name="users" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
           <Icon name="plus" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('FriendsScreen')}>
-         <Icon name="search" size={24} color="white" />
-       </TouchableOpacity>
-       <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
-         <Icon name="user" size={24} color="white" />
-       </TouchableOpacity>
-     </View>
-   </View>
- );
+          <Icon name="search" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
+          <Icon name="user" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
- container: {
-  paddingTop: 50,
-   flex: 1,
-   backgroundColor: '#121212',
- },
- tabBar: {
-   flexDirection: 'row',
- },
- toggleButton: {
-   flex: 1,
-   alignItems: 'center',
-   padding: 10,
-   borderBottomWidth: 2,
-   borderBottomColor: 'transparent',
- },
- toggleText: {
-   fontSize: 16,
-   fontWeight: '500',
-   color: 'white',
- },
- buttonActive: {
-   borderBottomColor: '#ffffff',
- },
- pagerView: {
-   flex: 1,
- },
- page: {
-   padding: 20,
- },
- postContainer: {
-   backgroundColor: '#1c1c1e',
-   padding: 10,
-   borderRadius: 10,
-   marginVertical: 8,
-   shadowColor: '#000',
-   elevation: 5,
- },
- imageHeader: {
-   flexDirection: 'row',
-   justifyContent: 'space-between',
-   padding: 10,
- },
- nameText: {
-   fontSize: 16,
-   fontWeight: '500',
-   color: '#ccc',
- },
- lockIcon: {
-   color: '#ccc',
- },
- image: {
-   width: '100%',
-   height: 300,
-   borderRadius: 15,
- },
- caption: {
-   fontSize: 16,
-   color: '#ccc',
-   padding: 10,
- },
- floatingButtonsContainer: {
-   position: 'absolute',
-   bottom: 20,
-   right: 20,
-   flexDirection: 'row',
- },
- floatingButton: {
-   backgroundColor: '#282828',
-   borderRadius: 30,
-   padding: 10,
-   marginLeft: 10,
- },
- groupCard: {
-   padding: 10,
-   borderRadius: 10,
-   backgroundColor: '#1c1c1e',
-   margin: 5,
-   shadowColor: '#000',
-   shadowOffset: { width: 0, height: 2 },
-   shadowOpacity: 0.25,
-   shadowRadius: 3.84,
-   elevation: 5,
- },
- groupName: {
-   fontSize: 18,
-   fontWeight: 'bold',
-   marginBottom: 10,
-   color: '#ccc',
- },
- postGrid: {
-   flexDirection: 'row',
-   flexWrap: 'wrap',
-   justifyContent: 'center',
- },
- postTile: {
-   width: '25%',
-   aspectRatio: 1,
-   padding: 2,
- },
- postImage: {
-   width: '100%',
-   height: '100%',
-   borderRadius: 5,
- },
- profileImage: {
-   width: '100%',
-   height: '100%',
-   borderRadius: 50,
-   backgroundColor: '#ccc',
- },
- noProfilePic: {
-   justifyContent: 'center',
-   alignItems: 'center',
- },
- noProfilePicText: {
-   color: '#fff',
-   fontWeight: 'bold',
- },
+  container: {
+    paddingTop: 50,
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  tabBar: {
+    flexDirection: 'row',
+  },
+  toggleButton: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  toggleText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: 'white',
+  },
+  buttonActive: {
+    borderBottomColor: '#ffffff',
+  },
+  pagerView: {
+    flex: 1,
+  },
+  page: {
+    padding: 20,
+  },
+  postContainer: {
+    backgroundColor: '#1c1c1e',
+    padding: 10,
+    borderRadius: 10,
+    marginVertical: 8,
+    shadowColor: '#000',
+    elevation: 5,
+  },
+  imageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 10,
+  },
+  nameText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#ccc',
+  },
+  lockIcon: {
+    color: '#ccc',
+  },
+  image: {
+    width: '100%',
+    height: 300,
+    borderRadius: 15,
+  },
+  caption: {
+    fontSize: 16,
+    color: '#ccc',
+    padding: 10,
+  },
+  floatingButtonsContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    flexDirection: 'row',
+  },
+  floatingButton: {
+    backgroundColor: '#282828',
+    borderRadius: 30,
+    padding: 10,
+    marginLeft: 10,
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'red',
+  },
+  groupCard: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#1c1c1e',
+    margin: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  groupName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#ccc',
+  },
+  postGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  postTile: {
+    width: '25%',
+    aspectRatio: 1,
+    padding: 2,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: '#ccc',
+  },
+  noProfilePic: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noProfilePicText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });
 
 export default FeedScreen;

@@ -1,14 +1,14 @@
-/* [AI Doc Review] This React Native file is a profile screen component that displays a user's information, including their name, profile picture, and posts. The component also allows the user to update their username and change their profile picture from their phone gallery. */
-/* [AI Bug Review] The bug is that the `useState` hook is not properly updating the state with the new username in the `handleUpdateProfile` function.*/
- import React, { useState, useEffect } from 'react';
-import { View, Image, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import { Image } from 'expo-image';
 
-function ProfileScreen({ route }) {
+function ProfileScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [profilePicture, setProfilePicture] = useState('https://via.placeholder.com/100');
   const [name, setName] = useState('John Doe');
@@ -20,17 +20,19 @@ function ProfileScreen({ route }) {
   }, []);
 
   const fetchUserData = async () => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const docSnap = await getDoc(userRef);
-    if (docSnap.exists()) {
-      const userData = docSnap.data();
-      setUsername(userData.username);
-      setName(userData.name);
-      setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-      setPosts(userData.posts || []);
-      setStreaks(userData.streaks || {});
-    } else {
-      console.log('No such document!');
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setUsername(userData.username);
+        setName(userData.name);
+        setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
+        setPosts(userData.posts || []);
+        setStreaks(userData.streaks || { group1: 5, group2: 3, group3: 7 });
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch user data');
     }
   };
 
@@ -39,16 +41,16 @@ function ProfileScreen({ route }) {
     const userRef = doc(db, 'users', auth.currentUser.uid);
     try {
       await updateDoc(userRef, { username });
-      alert('Profile updated successfully!');
+      Alert.alert('Profile updated successfully!');
     } catch (error) {
-      alert('Failed to update profile: ' + error.message);
+      Alert.alert('Failed to update profile: ' + error.message);
     }
   };
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      alert("You've refused to allow this app to access your photos!");
+      Alert.alert("You've refused to allow this app to access your photos!");
       return;
     }
 
@@ -64,7 +66,7 @@ function ProfileScreen({ route }) {
     }
 
     const manipResult = await manipulateAsync(
-      pickerResult.assets[0].uri,
+      pickerResult.uri,
       [{ resize: { width: 200, height: 200 } }],
       { compress: 0.1, format: SaveFormat.JPEG }
     );
@@ -89,17 +91,31 @@ function ProfileScreen({ route }) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
-        <Text style={styles.name}>{name}</Text>
-        <Button title="Change Picture" onPress={pickImage} color="#fff" />
+        <View style={styles.headerInfo}>
+          <Text style={styles.name}>{name}</Text>
+          <TouchableOpacity style={styles.changePictureButton} onPress={pickImage}>
+            <Text style={styles.changePictureButtonText}>Change Picture</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
-        <Text style={styles.stat}>Streak: {streaks.current}</Text>
+        <Text style={styles.stat}>Total Streaks: {Object.values(streaks).reduce((a, b) => a + b, 0)}</Text>
+      </View>
+      <View style={styles.streaks}>
+        <Text style={styles.streaksTitle}>Streaks</Text>
+        {Object.entries(streaks).map(([group, streak]) => (
+          <View key={group} style={styles.streak}>
+            <Icon name="fire" size={20} color="#ff4500" />
+            <Text style={styles.streakText}>{group}: {streak} days</Text>
+          </View>
+        ))}
       </View>
       <View style={styles.posts}>
+        <Text style={styles.postsTitle}>Posts</Text>
         {posts.map((post, index) => (
           <View key={index} style={styles.post}>
             <Text style={styles.postText}>{post.text}</Text>
@@ -115,71 +131,133 @@ function ProfileScreen({ route }) {
           value={username}
           onChangeText={setUsername}
         />
-        <Button title="Update Profile" onPress={handleUpdateProfile} color="#fff" />
+        <TouchableOpacity style={styles.updateButton} onPress={handleUpdateProfile}>
+          <Text style={styles.updateButtonText}>Update Profile</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+      <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+        <Text style={styles.settingsButtonText}>Settings</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#000', // Dark background for black and white theme
+    backgroundColor: '#000',
     paddingTop: 50,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   profilePicture: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginRight: 10,
+    marginRight: 20,
+  },
+  headerInfo: {
+    flex: 1,
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white', // White text for better contrast
+    color: 'white',
+    marginBottom: 10,
+  },
+  changePictureButton: {
+    backgroundColor: '#444',
+    padding: 10,
+    borderRadius: 5,
+  },
+  changePictureButtonText: {
+    color: 'white',
   },
   stats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   stat: {
     fontSize: 16,
-    color: 'white', // White text for stats
+    color: 'white',
+  },
+  streaks: {
+    marginBottom: 20,
+  },
+  streaksTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 10,
+  },
+  streak: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  streakText: {
+    fontSize: 16,
+    color: 'white',
+    marginLeft: 10,
   },
   posts: {
-    flex: 1,
+    marginBottom: 20,
+  },
+  postsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 10,
   },
   post: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#232323', // Slightly lighter border for contrast
+    borderBottomColor: '#444',
+    marginBottom: 10,
   },
   postText: {
-    color: 'white', // White text for post content
+    color: 'white',
   },
   usernameSection: {
-    padding: 10,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
-    color: 'white', // White label text
+    color: 'white',
+    marginBottom: 5,
   },
   input: {
-    width: '100%',
-    marginVertical: 10,
+    backgroundColor: '#191919',
+    color: 'white',
     padding: 10,
-    borderWidth: 1,
-    borderColor: '#fff', // White border for input
     borderRadius: 5,
-    color: 'white', // White input text
-    backgroundColor: '#191919', // Darker black for input background
+    marginBottom: 10,
+  },
+  updateButton: {
+    backgroundColor: '#1E90FF',
+    padding: 10,
+    borderRadius: 5,
+  },
+  updateButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  settingsButton: {
+    backgroundColor: '#1E90FF',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  settingsButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

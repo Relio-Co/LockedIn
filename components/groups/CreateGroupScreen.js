@@ -1,7 +1,7 @@
 /* [AI Doc Review] This React Native file implements a screen for creating a new group, allowing the user to input the group name and description, select whether the group is public or private, and then create the group by calling Firebase's Firestore database. */
 /* [AI Bug Review] The bug is that the `handleCreateGroup` function is defined inside the `CreateGroupScreen` component, which means it will be re-created every time the component updates, and its state will not be preserved. To fix this, you should define the function outside the component, so that it's only created once when the component is initialized.*/
  import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, ScrollView } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
@@ -113,6 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#000',
+    paddingTop: 50,
   },
   headerCard: {
     marginBottom: 20,

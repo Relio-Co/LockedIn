@@ -1,7 +1,5 @@
-/* [AI Doc Review] This React Native file displays a list of groups that the user is a part of, as well as public groups and group invites. It allows the user to join or leave groups, refreshes the data when necessary, and provides navigation to other screens. */
-/* [AI Bug Review] The code does not handle the case where `getDoc` or `getDocs` promise resolves with an error.*/
- import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
@@ -32,52 +30,72 @@ function GroupsScreen() {
 
   const fetchGroups = async () => {
     setRefreshing(true);
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const docSnap = await getDoc(userRef);
-    if (docSnap.exists()) {
-      const groupIds = docSnap.data().groups || [];
-      const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, "groups", groupId))));
-      const groupsData = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-      setGroups(groupsData);
-      AsyncStorage.setItem('userGroups', JSON.stringify(groupsData));
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const groupIds = docSnap.data().groups || [];
+        const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, 'groups', groupId))));
+        const groupsData = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setGroups(groupsData);
+        await AsyncStorage.setItem('userGroups', JSON.stringify(groupsData));
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch groups');
     }
     setRefreshing(false);
   };
 
   const fetchPublicGroups = async () => {
-    const publicGroupsQuery = query(collection(db, "groups"), where("public", "==", true));
-    const querySnapshot = await getDocs(publicGroupsQuery);
-    const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setPublicGroups(publicGroupsData);
+    try {
+      const publicGroupsQuery = query(collection(db, 'groups'), where('public', '==', true));
+      const querySnapshot = await getDocs(publicGroupsQuery);
+      const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPublicGroups(publicGroupsData);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch public groups');
+    }
   };
 
   const fetchInvites = async () => {
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const docSnap = await getDoc(userRef);
-    if (docSnap.exists()) {
-      const groupInvites = docSnap.data().groupsInvitedTo || [];
-      const invitesQuery = await Promise.all(groupInvites.map(groupId => getDoc(doc(db, "groups", groupId))));
-      const invitesData = invitesQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-      setInvites(invitesData);
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const groupInvites = docSnap.data().groupsInvitedTo || [];
+        const invitesQuery = await Promise.all(groupInvites.map(groupId => getDoc(doc(db, 'groups', groupId))));
+        const invitesData = invitesQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setInvites(invitesData);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch group invites');
     }
   };
 
   const getMemberCount = (members) => members ? members.length : '0';
 
   const handleJoinGroup = async (groupId) => {
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const groupRef = doc(db, "groups", groupId);
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const groupRef = doc(db, 'groups', groupId);
 
-    await updateDoc(userRef, {
-      groups: arrayUnion(groupId)
-    });
+      await updateDoc(userRef, {
+        groups: arrayUnion(groupId)
+      });
 
-    await updateDoc(groupRef, {
-      members: arrayUnion(auth.currentUser.uid)
-    });
+      await updateDoc(groupRef, {
+        members: arrayUnion(auth.currentUser.uid)
+      });
 
-    fetchGroups();
-    Alert.alert("Success", "You have joined the group.");
+      fetchGroups();
+      Alert.alert('Success', 'You have joined the group.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to join the group');
+    }
+  };
+
+  const handleCreateGroup = () => {
+    navigation.navigate('CreateGroup');
   };
 
   return (
@@ -88,6 +106,10 @@ function GroupsScreen() {
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerText}>Groups</Text>
+        <TouchableOpacity onPress={handleCreateGroup} style={styles.createButton}>
+          <Icon name="plus" size={20} color="white" />
+          <Text style={styles.createButtonText}>Create Group</Text>
+        </TouchableOpacity>
       </View>
       <FlatList
         data={groups}
@@ -128,9 +150,11 @@ function GroupsScreen() {
             <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
             <View style={styles.publicGroupInfo}>
               <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
-              <TouchableOpacity style={styles.joinButton} onPress={() => handleJoinGroup(item.id)}>
-                <Text style={styles.joinButtonText}>Join</Text>
-              </TouchableOpacity>
+              {!groups.some(group => group.id === item.id) && (
+                <TouchableOpacity style={styles.joinButton} onPress={() => handleJoinGroup(item.id)}>
+                  <Text style={styles.joinButtonText}>Join</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -147,8 +171,8 @@ function GroupsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
-    paddingTop: 40,
+    backgroundColor: '#000',
+    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
@@ -175,6 +199,18 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E90FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  createButtonText: {
+    color: 'white',
+    marginLeft: 5,
   },
   listItemContainer: {
     flexDirection: 'row',

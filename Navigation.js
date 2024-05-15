@@ -14,6 +14,7 @@ import GroupDetailsScreen from './components/groups/GroupFeedScreen';
 import GroupMembersScreen from './components/groups/GroupMembersScreen';
 import GroupSettingsScreen from './components/groups/GroupSettingsScreen';
 import FriendsScreen from './components/mainscreens/FriendsScreen';
+import NotificationsScreen from './components/mainscreens/NotificationsScreen'
 
 const Stack = createNativeStackNavigator();
 
@@ -34,6 +35,7 @@ function Navigation() {
         <Stack.Screen name="GroupMembers" component={GroupMembersScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="GroupSettings" component={GroupSettingsScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="FriendsScreen" component={FriendsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,15 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { auth, db, storage } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Image,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import { auth, db, storage } from "../../firebaseConfig";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import * as ImagePicker from "expo-image-picker";
+import { manipulateAsync, FlipType, SaveFormat } from "expo-image-manipulator";
 
 function ProfileScreen({ route }) {
-  const [username, setUsername] = useState('');
-  const [profilePicture, setProfilePicture] = useState('https://via.placeholder.com/100');
-  const [name, setName] = useState('John Doe');
+  const [username, setUsername] = useState("");
+  const [profilePicture, setProfilePicture] = useState(
+    "https://via.placeholder.com/100"
+  );
+  const [name, setName] = useState("John Doe");
   const [posts, setPosts] = useState([]);
   const [streaks, setStreaks] = useState({});
 
@@ -18,33 +28,36 @@ function ProfileScreen({ route }) {
   }, []);
 
   const fetchUserData = async () => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userRef = doc(db, "users", auth.currentUser.uid);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
       const userData = docSnap.data();
       setUsername(userData.username);
       setName(userData.name);
-      setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
+      setProfilePicture(
+        userData.profilePicture || "https://via.placeholder.com/100"
+      );
       setPosts(userData.posts || []);
       setStreaks(userData.streaks || {});
     } else {
-      console.log('No such document!');
+      console.log("No such document!");
     }
   };
 
   const handleUpdateProfile = async () => {
     if (!username.trim()) return;
-    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userRef = doc(db, "users", auth.currentUser.uid);
     try {
       await updateDoc(userRef, { username });
-      alert('Profile updated successfully!');
+      alert("Profile updated successfully!");
     } catch (error) {
-      alert('Failed to update profile: ' + error.message);
+      alert("Failed to update profile: " + error.message);
     }
   };
 
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       alert("You've refused to allow this app to access your photos!");
       return;
@@ -57,6 +70,7 @@ function ProfileScreen({ route }) {
       quality: 1,
     });
 
+    console.log(pickerResult.uri);
     if (pickerResult.cancelled) {
       return;
     }
@@ -82,7 +96,7 @@ function ProfileScreen({ route }) {
   };
 
   const updateProfilePicture = async (url) => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userRef = doc(db, "users", auth.currentUser.uid);
     await updateDoc(userRef, { profilePicture: url });
   };
 
@@ -113,7 +127,11 @@ function ProfileScreen({ route }) {
           value={username}
           onChangeText={setUsername}
         />
-        <Button title="Update Profile" onPress={handleUpdateProfile} color="#fff" />
+        <Button
+          title="Update Profile"
+          onPress={handleUpdateProfile}
+          color="#fff"
+        />
       </View>
     </View>
   );
@@ -123,12 +141,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#000', // Dark background for black and white theme
+    backgroundColor: "#000", // Dark background for black and white theme
     paddingTop: 50,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
   profilePicture: {
@@ -139,17 +157,17 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white', // White text for better contrast
+    fontWeight: "bold",
+    color: "white", // White text for better contrast
   },
   stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 10,
   },
   stat: {
     fontSize: 16,
-    color: 'white', // White text for stats
+    color: "white", // White text for stats
   },
   posts: {
     flex: 1,
@@ -157,27 +175,27 @@ const styles = StyleSheet.create({
   post: {
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#232323', // Slightly lighter border for contrast
+    borderBottomColor: "#232323", // Slightly lighter border for contrast
   },
   postText: {
-    color: 'white', // White text for post content
+    color: "white", // White text for post content
   },
   usernameSection: {
     padding: 10,
   },
   label: {
     fontSize: 16,
-    color: 'white', // White label text
+    color: "white", // White label text
   },
   input: {
-    width: '100%',
+    width: "100%",
     marginVertical: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#fff', // White border for input
+    borderColor: "#fff", // White border for input
     borderRadius: 5,
-    color: 'white', // White input text
-    backgroundColor: '#191919', // Darker black for input background
+    color: "white", // White input text
+    backgroundColor: "#191919", // Darker black for input background
   },
 });
 

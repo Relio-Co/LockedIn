@@ -1,9 +1,8 @@
-/* [AI Doc Review] This React Native file displays a post detail screen with its caption, image, and comments. It also allows users to add new comments to the post, fetching data from Firebase Firestore database. */
-/* [AI Bug Review] The bug/fault is that the `postId` is not checked for null or undefined before using it in the useEffect dependency array, which can cause an error if `route.params.postId` is not present.*/
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Button, Alert } from 'react-native';
-import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, getDocs, addDoc } from 'firebase/firestore';
+import { db, auth, storage } from '../../firebaseConfig';
+import { doc, getDoc, collection, query, getDocs, addDoc, deleteDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 
@@ -71,6 +70,52 @@ function PostDetailScreen({ route }) {
     setNewComment('');
   };
 
+  const handleDeletePost = async () => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Remove the post document
+              const postRef = doc(db, 'posts', postId);
+              await deleteDoc(postRef);
+
+              // Remove the post from the group's set of posts
+              const groupRef = doc(db, 'groups', post.groupId);
+              await updateDoc(groupRef, {
+                posts: arrayRemove(postId)
+              });
+
+              // Remove the post from the user's set of posts (if applicable)
+              const userRef = doc(db, 'users', post.createdBy);
+              await updateDoc(userRef, {
+                posts: arrayRemove(postId)
+              });
+
+              // Delete the image from Firebase Storage
+              const imageRef = ref(storage, post.imageUrl);
+              await deleteObject(imageRef);
+
+              // Navigate back to the previous screen
+              navigation.goBack();
+            } catch (error) {
+              console.error("Error deleting post:", error);
+              Alert.alert("Error", "Failed to delete post. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       {post && (
@@ -86,6 +131,9 @@ function PostDetailScreen({ route }) {
           <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: post.createdBy })}>
             <Text style={styles.username}>{post.username}</Text>
           </TouchableOpacity>
+          {post.createdBy === auth.currentUser.uid && (
+            <Button title="Delete Post" onPress={handleDeletePost} color="#ff4444" />
+          )}
           <FlatList
             data={comments}
             keyExtractor={(item) => item.id.toString()}

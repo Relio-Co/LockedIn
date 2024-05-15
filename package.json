@@ -22,7 +22,8 @@
     "react-native": "0.74.1",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-picker-select": "^9.1.3",
-    "react-native-pager-view": "6.3.0"
+    "react-native-pager-view": "6.3.0",
+    "expo-camera": "~15.0.8"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

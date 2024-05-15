@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This JavaScript file defines a React Native component called `PostScreen` that allows users to upload posts with images and captions, selecting a group (if available) to share the post with. The component uses various Firebase services (Firebase Storage, Firestore, and Authentication) to handle image uploads, create new posts, and update group information. It also includes functionality for picking an image from the camera roll, uploading the image, and displaying the uploaded post on the screen. */
+/* [AI Bug Review] The code provided is a React Native component, not JavaScript. However, one potential bug or fault is that the `styles` and `pickerSelectStyles` objects are defined using `StyleSheet.create()`, which returns an object with the styles as properties. However, in the `PostScreen` function, these styles are being accessed like regular JavaScript objects (e.g., `styles.container`). This could lead to issues if the styles are not properly defined or if there are typos in the style names.
+ */import React, { useState, useEffect } from 'react';
 import { View, Button, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';

@@ -1,0 +1,2207 @@
+// Content of components\authentication\AuthScreen.js
+import React, { useState } from 'react';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { auth, db } from '../../firebaseConfig';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+function AuthScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isNewUser, setIsNewUser] = useState(false);
+  const navigation = useNavigation();
+  const [fadeAnim] = useState(new Animated.Value(1)); // Initial opacity for buttons
+
+  const fadeIn = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true
+    }).start();
+  };
+
+  const fadeOut = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0.5,
+      duration: 500,
+      useNativeDriver: true
+    }).start();
+  };
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both an email and a password.");
+      return;
+    }
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log('Logged in with:', user.email);
+
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const userProfile = docSnap.data();
+        await AsyncStorage.setItem('userProfile', JSON.stringify(userProfile));
+        navigation.navigate('Feed');
+      } else {
+        console.log("No user profile found!");
+      }
+    } catch (error) {
+      Alert.alert("Login Failed", error.message);
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both an email and a password.");
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const userProfile = {
+        uid: user.uid,
+        email: user.email,
+        username: '',
+        profilePicture: '',
+        streakScore: 0
+      };
+
+      await setDoc(doc(db, 'users', user.uid), userProfile);
+      await AsyncStorage.setItem('userProfile', JSON.stringify(userProfile));
+      navigation.navigate('Feed');
+      Alert.alert("Success", "Registration successful!");
+    } catch (error) {
+      Alert.alert("Sign Up Failed", error.message);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.logoText}>LockedIn</Text>
+      <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#ccc" value={email} onChangeText={setEmail} autoCapitalize="none" />
+      <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#ccc" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" />
+      {isNewUser ? (
+        <Animated.View style={[styles.button, {opacity: fadeAnim}]}>
+          <TouchableOpacity onPress={() => {handleSignUp(); fadeIn();}} activeOpacity={0.7} onPressIn={fadeOut} onPressOut={fadeIn}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      ) : (
+        <Animated.View style={[styles.button, {opacity: fadeAnim}]}>
+          <TouchableOpacity onPress={() => {handleLogin(); fadeIn();}} activeOpacity={0.7} onPressIn={fadeOut} onPressOut={fadeIn}>
+            <Text style={styles.buttonText}>Login</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+      <TouchableOpacity onPress={() => setIsNewUser(!isNewUser)} style={styles.switchButton}>
+        <Text style={styles.switchText}>{isNewUser ? "Have an account? Log in" : "New user? Sign up"}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => {setEmail("a@gmail.com"); setPassword("password");}} style={styles.populateButton}>
+        <Text style={styles.populateText}>Populate Admin Details</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    padding: 20,
+  },
+  input: {
+    width: '90%',
+    margin: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 5,
+    color: 'white',
+    backgroundColor: '#191919',
+    fontSize: 16,
+  },
+  logoText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 30,
+  },
+  button: {
+    width: '90%',
+    padding: 12,
+    backgroundColor: '#424242',
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 10,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  switchButton: {
+    marginTop: 10,
+  },
+  switchText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  populateButton: {
+    marginTop: 10,
+  },
+  populateText: {
+    color: 'white',
+    fontSize: 14,
+  }
+});
+
+export default AuthScreen;
+
+
+// Content of components\groups\CreateGroupScreen.js
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+
+function CreateGroupScreen() {
+  const [groupName, setGroupName] = useState('');
+  const [groupDesc, setGroupDesc] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || !groupDesc.trim()) {
+      Alert.alert('Error', 'Please fill in all fields.');
+      return;
+    }
+
+    try {
+      // Create the new group with the current user as the admin
+      const newGroup = {
+        name: groupName,
+        description: groupDesc,
+        public: isPublic,
+        admins: [auth.currentUser.uid],
+        members: [auth.currentUser.uid]
+      };
+
+      const docRef = await addDoc(collection(db, "groups"), newGroup);
+
+      // Add the group to the user's list of groups in their profile
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        groups: arrayUnion(docRef.id)
+      });
+
+      Alert.alert('Success', 'Group created successfully!');
+    } catch (error) {
+      console.error("Error creating group:", error);
+      Alert.alert('Error', 'Failed to create group.');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerCard}>
+        <Text style={styles.headerTitle}>Create a Group</Text>
+        <Text style={styles.headerSubtitle}>Enter group name and description below.</Text>
+      </View>
+      <View style={styles.divider} />
+
+      <View style={styles.pickerContainer}>
+        <Text style={styles.pickerLabel}>Name:</Text>
+        <TextInput
+          style={styles.input}
+          value={groupName}
+          onChangeText={setGroupName}
+          autoCapitalize="words"
+        />
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.pickerContainer}>
+        <Text style={styles.pickerLabel}>Description:</Text>
+        <TextInput
+          style={[styles.input, { height: 100 }]}
+          value={groupDesc}
+          onChangeText={setGroupDesc}
+          multiline
+          numberOfLines={4}
+        />
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.pickerContainer}>
+        <Text style={styles.pickerLabel}>Privacy:</Text>
+        <TouchableOpacity
+          style={[styles.optionCard, isPublic ? styles.selectedOptionCard : null]}
+          onPress={() => setIsPublic(!isPublic)}
+        >
+          <View style={styles.optionCardContent}>
+            <Text style={styles.optionCardTitle}>{isPublic ? "Public Group" : "Private Group"}</Text>
+          </View>
+          <View style={styles.radioOuterCircle}>
+            {isPublic && <View style={styles.radioInnerCircle} />}
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.footerCard}>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          onPress={() => { }}
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.saveButton]}
+          onPress={handleCreateGroup}
+        >
+          <Text style={styles.saveButtonText}>Create Group</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#000',
+  },
+  headerCard: {
+    marginBottom: 20,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  headerSubtitle: {
+    color: 'grey',
+    fontSize: 16,
+  },
+  divider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#232323',
+    marginVertical: 20,
+  },
+  pickerContainer: {
+    marginBottom: 10,
+  },
+  pickerLabel: {
+    color: 'white',
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: 'gray',
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+  },
+  dropdownContainer: {
+    height: 40,
+  },
+  dropdown: {
+    backgroundColor: 'black',
+    borderWidth: 1,
+    borderColor: 'white',
+    borderRadius: 10,
+  },
+  dropdownItem: {
+    justifyContent: 'flex-start',
+  },
+  dropdownMenu: {
+    backgroundColor: 'black',
+    borderWidth: 0,
+  },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#232323",
+    backgroundColor: 'black',
+    marginBottom: 10,
+  },
+  selectedOptionCard: {
+    borderColor: '#424242',
+  },
+  optionCardContent: {
+    flex: 1,
+  },
+  optionCardTitle: {
+    color: 'white',
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  optionCardDescription: {
+    color: '#7e7e7e',
+  },
+  radioOuterCircle: {
+    height: 24,
+    width: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#424242',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInnerCircle: {
+    height: 8,
+    width: 8,
+    borderRadius: 6,
+    backgroundColor: 'white',
+  },
+  footerCard: {
+    flexDirection: "row",
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  button: {
+    borderRadius: 10,
+    paddingVertical: 15,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: "#232323",
+    marginRight: 10,
+  },
+  cancelButtonText: {
+    color: 'white',
+  },
+  saveButton: {
+    backgroundColor: 'white',
+    marginLeft: 10,
+  },
+  saveButtonText: {
+    color: 'black',
+  },
+});
+
+export default CreateGroupScreen;
+
+// Content of components\groups\GroupFeedScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import Icon from 'react-native-vector-icons/FontAwesome';
+
+const GroupFeedScreen = ({ route }) => {
+  const { groupId } = route.params;
+  const [group, setGroup] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    async function fetchGroupAndPosts() {
+      const groupRef = doc(db, 'groups', groupId);
+      const groupSnap = await getDoc(groupRef);
+
+      if (groupSnap.exists() && groupSnap.data().members.includes(auth.currentUser.uid)) {
+        setGroup(groupSnap.data());
+        const postIds = groupSnap.data().posts || [];
+        const postsData = await Promise.all(
+          postIds.map(async postId => {
+            const postRef = doc(db, 'posts', postId);
+            const postSnap = await getDoc(postRef);
+            if (postSnap.exists()) {
+              const postData = postSnap.data();
+              const userRef = doc(db, 'users', postData.createdBy);
+              const userSnap = await getDoc(userRef);
+              return userSnap.exists() ? { id: postSnap.id, ...postData, createdByUsername: userSnap.data().username } : null;
+            }
+            return null;
+          })
+        );
+        setPosts(postsData.filter(post => post !== null));
+      } else {
+        Alert.alert("Access Denied", "You are not a member of this group.");
+        navigation.goBack();
+      }
+    }
+
+    fetchGroupAndPosts();
+  }, [groupId]);
+
+  const isAdmin = group && group.admins && group.admins.includes(auth.currentUser.uid);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>{group ? group.name : 'Loading...'}</Text>
+      <View style={styles.iconBar}>
+        <TouchableOpacity onPress={() => navigation.navigate('Post', { groupId })}>
+          <Icon name="plus" size={24} color="white" />
+        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity onPress={() => navigation.navigate('GroupSettings', { groupId })}>
+            <Icon name="edit" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => navigation.navigate('GroupMembers', { groupId, isAdmin })}>
+          <Icon name="users" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.postContainer} onPress={() => navigation.navigate('PostDetail', { postId: item.id, groupId })}>
+            <Text style={styles.postTitle}>{item.title || 'No Title'}</Text>
+            {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.image} accessibilityLabel="Post Image" />}
+            <Text style={styles.postContent}>{item.content}</Text>
+            <View style={styles.postFooter}>
+              <Text style={styles.postedBy}>Posted by: {item.createdByUsername}</Text>
+              <View style={styles.iconRow}>
+                <Icon name="thumbs-up" size={20} color="white" style={styles.icon} />
+                <Icon name="comment" size={20} color="white" style={styles.icon} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#000', // Dark background for black and white theme
+    paddingTop: 50,
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 20,
+  },
+  iconBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    marginBottom: 20,
+  },
+  postContainer: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderColor: '#fff',
+    marginBottom: 10,
+    backgroundColor: '#191919', // Slightly lighter black for contrast
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 5,
+  },
+  postContent: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 5,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    marginBottom: 5,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  postedBy: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: 'grey',
+  },
+  iconRow: {
+    flexDirection: 'row',
+  },
+  icon: {
+    marginLeft: 10,
+  }
+});
+
+export default GroupFeedScreen;
+
+
+// Content of components\groups\GroupMembersScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, FlatList, TextInput, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, query, getDocs, where } from 'firebase/firestore';
+
+function GroupMembersScreen({ route }) {
+  const { groupId } = route.params;
+  const [members, setMembers] = useState([]);
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    fetchMembers();
+  }, [groupId]);
+
+  const fetchMembers = async () => {
+    const groupRef = doc(db, 'groups', groupId);
+    const groupSnap = await getDoc(groupRef);
+    if (groupSnap.exists()) {
+      const membersIds = groupSnap.data().members;
+      const membersData = await Promise.all(membersIds.map(async memberId => {
+        const userRef = doc(db, 'users', memberId);
+        const userSnap = await getDoc(userRef);
+        return { id: memberId, username: userSnap.data().username, isAdmin: groupSnap.data().admins.includes(memberId) };
+      }));
+      setMembers(membersData);
+    }
+  };
+
+  const handleAdminToggle = async (memberId) => {
+    const groupRef = doc(db, 'groups', groupId);
+    const groupSnap = await getDoc(groupRef);
+    if (groupSnap.data().admins.includes(memberId)) {
+      await updateDoc(groupRef, { admins: arrayRemove(memberId) });
+    } else {
+      await updateDoc(groupRef, { admins: arrayUnion(memberId) });
+    }
+    fetchMembers();
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    const groupRef = doc(db, 'groups', groupId);
+    await updateDoc(groupRef, { members: arrayRemove(memberId) });
+    fetchMembers();
+  };
+
+  const handleInviteUser = async () => {
+    const userQuery = query(collection(db, "users"), where("username", "==", username));
+    const querySnapshot = await getDocs(userQuery);
+    if (!querySnapshot.empty) {
+      const userId = querySnapshot.docs[0].id;
+      await updateDoc(doc(db, 'users', userId), {
+        groupsInvitedTo: arrayUnion(groupId)
+      });
+      Alert.alert("Invitation sent!");
+      setUsername('');
+    } else {
+      Alert.alert("No user found with that username.");
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <TextInput
+        style={styles.input}
+        placeholder="Invite by username"
+        placeholderTextColor="#ccc"
+        value={username}
+        onChangeText={setUsername}
+        onSubmitEditing={handleInviteUser}
+      />
+      <TouchableOpacity style={styles.inviteButton} onPress={handleInviteUser}>
+        <Text style={styles.buttonText}>Send Invite</Text>
+      </TouchableOpacity>
+      <FlatList
+        data={members}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.memberItem}>
+            <Text style={styles.memberText}>{item.username} {item.isAdmin ? '(Admin)' : ''}</Text>
+            <TouchableOpacity style={styles.adminButton} onPress={() => handleAdminToggle(item.id)}>
+              <Text style={styles.buttonText}>{item.isAdmin ? 'Remove Admin' : 'Make Admin'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveMember(item.id)}>
+              <Text style={styles.buttonText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#000',
+    paddingTop: 50,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    borderRadius: 10,
+    color: 'white',
+    backgroundColor: '#191919',
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  inviteButton: {
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    backgroundColor: '#333',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#1c1c1e',
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  memberText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  adminButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    backgroundColor: '#333',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  removeButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 10,
+    backgroundColor: '#333',
+    alignItems: 'center',
+  },
+});
+
+export default GroupMembersScreen;
+
+
+// Content of components\groups\GroupScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+function GroupsScreen() {
+  const [groups, setGroups] = useState([]);
+  const [publicGroups, setPublicGroups] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    loadGroupsFromStorage();
+    fetchPublicGroups();
+    fetchInvites();
+  }, []);
+
+  const loadGroupsFromStorage = async () => {
+    const storedGroups = await AsyncStorage.getItem('userGroups');
+    if (storedGroups) {
+      setGroups(JSON.parse(storedGroups));
+    } else {
+      fetchGroups();
+    }
+  };
+
+  const fetchGroups = async () => {
+    setRefreshing(true);
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const groupIds = docSnap.data().groups || [];
+      const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, "groups", groupId))));
+      const groupsData = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      setGroups(groupsData);
+      AsyncStorage.setItem('userGroups', JSON.stringify(groupsData));
+    }
+    setRefreshing(false);
+  };
+
+  const fetchPublicGroups = async () => {
+    const publicGroupsQuery = query(collection(db, "groups"), where("public", "==", true));
+    const querySnapshot = await getDocs(publicGroupsQuery);
+    const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setPublicGroups(publicGroupsData);
+  };
+
+  const fetchInvites = async () => {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const groupInvites = docSnap.data().groupsInvitedTo || [];
+      const invitesQuery = await Promise.all(groupInvites.map(groupId => getDoc(doc(db, "groups", groupId))));
+      const invitesData = invitesQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      setInvites(invitesData);
+    }
+  };
+
+  const getMemberCount = (members) => members ? members.length : '0';
+
+  const handleJoinGroup = async (groupId) => {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    const groupRef = doc(db, "groups", groupId);
+
+    await updateDoc(userRef, {
+      groups: arrayUnion(groupId)
+    });
+
+    await updateDoc(groupRef, {
+      members: arrayUnion(auth.currentUser.uid)
+    });
+
+    fetchGroups();
+    Alert.alert("Success", "You have joined the group.");
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('FeedScreen')} style={styles.backButton}>
+          <Icon name="arrow-left" size={20} color="white" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerText}>Groups</Text>
+      </View>
+      <FlatList
+        data={groups}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: item.id })}>
+            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
+            <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
+          </TouchableOpacity>
+        )}
+        ListHeaderComponent={() => (
+          <>
+            {invites.length > 0 && (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText}>Group Invites</Text>
+                {invites.map(invite => (
+                  <TouchableOpacity key={invite.id} style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: invite.id })}>
+                    <Image source={{ uri: invite.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
+                    <Text style={styles.listItemText}>{invite.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>Your Groups</Text>
+            </View>
+          </>
+        )}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={fetchGroups} />
+        }
+      />
+      <FlatList
+        data={publicGroups}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.listItemContainer}>
+            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
+            <View style={styles.publicGroupInfo}>
+              <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
+              <TouchableOpacity style={styles.joinButton} onPress={() => handleJoinGroup(item.id)}>
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        ListHeaderComponent={() => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>Public Groups</Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'black',
+    paddingTop: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'white',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'black',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  backButtonText: {
+    color: 'white',
+    marginLeft: 5,
+  },
+  headerText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  listItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'white',
+  },
+  profilePic: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  listItemText: {
+    fontSize: 18,
+    color: 'white',
+  },
+  publicGroupInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+  },
+  joinButton: {
+    backgroundColor: '#1E90FF',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  joinButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  sectionHeader: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  sectionHeaderText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+});
+
+export default GroupsScreen;
+
+
+// Content of components\groups\GroupSettingsScreen.js
+import React, { useState } from 'react';
+import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
+import { db } from '../../firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
+
+function GroupSettingsScreen({ route }) {
+  const { groupId } = route.params;
+  const [groupName, setGroupName] = useState('');
+  const [groupDesc, setGroupDesc] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
+
+  const updateGroupSettings = async () => {
+    const groupRef = doc(db, 'groups', groupId);
+    await updateDoc(groupRef, {
+      name: groupName,
+      description: groupDesc,
+      public: isPublic
+    });
+    alert('Group settings updated successfully!');
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text>Group Name:</Text>
+      <TextInput
+        style={styles.input}
+        value={groupName}
+        onChangeText={setGroupName}
+      />
+      <Text>Description:</Text>
+      <TextInput
+        style={styles.input}
+        value={groupDesc}
+        onChangeText={setGroupDesc}
+      />
+      <Button title={isPublic ? "Public" : "Private"} onPress={() => setIsPublic(!isPublic)} />
+      <Button title="Update Settings" onPress={updateGroupSettings} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: 'gray',
+    padding: 10,
+    marginBottom: 10,
+  }
+});
+
+export default GroupSettingsScreen;
+
+
+// Content of components\mainscreens\FeedScreen.js
+import React, { useEffect, useState } from 'react';
+import { View, FlatList, TouchableOpacity, RefreshControl, StyleSheet, Text } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { db, auth } from '../../firebaseConfig';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { Image } from 'expo-image';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import PagerView from 'react-native-pager-view';
+
+const blurhash = '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
+
+function FeedScreen() {
+  const [posts, setPosts] = useState([]);
+  const [userGroups, setUserGroups] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [feedType, setFeedType] = useState(0);
+  const navigation = useNavigation();
+
+  const isToday = (date) => {
+    const today = new Date();
+    const dateToCheck = typeof date === 'object' ? date : new Date(date);
+
+    return (
+      dateToCheck.getDate() === today.getDate() &&
+      dateToCheck.getMonth() === today.getMonth() &&
+      dateToCheck.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const fetchUserDataAndPosts = async () => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (!docSnap.metadata.hasPendingWrites && !docSnap.metadata.fromCache) {
+      const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
+      setUserGroups(userGroups);
+      AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
+
+      const groupPosts = await Promise.all(
+        userGroups.map(async (groupId) => {
+          const groupRef = doc(db, 'groups', groupId);
+          const groupSnap = await getDoc(groupRef);
+          const groupData = groupSnap.data();
+
+          const postIds = groupData?.posts || [];
+          const postDocs = await Promise.all(
+            postIds.map(async (postId) => {
+              const postRef = doc(db, 'posts', postId);
+              const postSnap = await getDoc(postRef);
+              return { ...postSnap.data(), groupName: groupData.name };
+            })
+          );
+
+          const memberIds = groupData?.members || [];
+          const userProfilesQuery = await getDocs(
+            query(collection(db, 'users'), where('__name__', 'in', memberIds))
+          );
+          const userProfiles = userProfilesQuery.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          return { groupId, name: groupData.name, posts: postDocs, userProfiles };
+        })
+      );
+
+      setPosts(groupPosts);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserDataAndPosts();
+  }, [feedType]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchUserDataAndPosts();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.toggleButton, feedType === 0 && styles.buttonActive]}
+          onPress={() => setFeedType(0)}
+        >
+          <Text style={styles.toggleText}>Friends</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, feedType === 1 && styles.buttonActive]}
+          onPress={() => setFeedType(1)}
+        >
+          <Text style={styles.toggleText}>For You</Text>
+        </TouchableOpacity>
+      </View>
+      <PagerView
+        style={styles.pagerView}
+        initialPage={0}
+        onPageSelected={(e) => setFeedType(e.nativeEvent.position)}
+      >
+        <View key="1" style={styles.page}>
+          <FlatList
+            data={posts}
+            keyExtractor={(item) => item.groupId}
+            renderItem={({ item }) => (
+              <View style={styles.groupCard}>
+                <Text style={styles.groupName}>{item.name}</Text>
+                <View style={styles.postGrid}>
+                  {item.userProfiles.map((profile) => {
+                    const post = item.posts.find(
+                      (post) =>
+                        post.createdBy === profile.id &&
+                        isToday(post.createdAt.toDate())
+                    );
+                    return (
+                      <View key={profile.id} style={styles.postTile}>
+                        {post ? (
+                          <Image
+                            style={styles.postImage}
+                            source={{ uri: post.imageUrl }}
+                            placeholder={{ uri: blurhash }}
+                            contentFit="cover"
+                            transition={1000}
+                          />
+                        ) : profile.profilePicture ? (
+                          <Image
+                            style={styles.profileImage}
+                            source={{ uri: profile.profilePicture }}
+                          />
+                        ) : (
+                          <View style={[styles.profileImage, styles.noProfilePic]}>
+                            <Text style={styles.noProfilePicText}>No Profile Picture</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          />
+        </View>
+        <View key="2" style={styles.page}>
+          <FlatList
+            data={posts.flatMap(group => group.posts.filter(post => post.isPublic))}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.postContainer}>
+                <View style={styles.imageHeader}>
+                  <Text style={[styles.nameText, styles.groupName]}>
+                    {item.createdByUsername} <Text style={styles.groupText}>{item.groupName || ""}</Text>
+                  </Text>
+                  <Icon name={item.isPublic ? "unlock" : "lock"} size={24} style={styles.lockIcon} />
+                </View>
+                <TouchableOpacity onPress={() => {console.log(item.id); navigation.navigate('PostDetail', { postId: item.id }); }}>
+                  <Image
+                    style={styles.image}
+                    source={{ uri: item.imageUrl }}
+                    placeholder={{ uri: blurhash }}
+                    contentFit="cover"
+                    transition={1000}
+                  />
+                  <Text style={styles.caption}>{item.caption}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          />
+        </View>
+      </PagerView>
+
+      <View style={styles.floatingButtonsContainer}>
+      <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Groups')}>
+          <Icon name="users" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Post')}>
+          <Icon name="plus" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('FriendsScreen')}>
+         <Icon name="search" size={24} color="white" />
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.floatingButton} onPress={() => navigation.navigate('Profile')}>
+         <Icon name="user" size={24} color="white" />
+       </TouchableOpacity>
+     </View>
+   </View>
+ );
+}
+
+const styles = StyleSheet.create({
+ container: {
+  paddingTop: 50,
+   flex: 1,
+   backgroundColor: '#121212',
+ },
+ tabBar: {
+   flexDirection: 'row',
+ },
+ toggleButton: {
+   flex: 1,
+   alignItems: 'center',
+   padding: 10,
+   borderBottomWidth: 2,
+   borderBottomColor: 'transparent',
+ },
+ toggleText: {
+   fontSize: 16,
+   fontWeight: '500',
+   color: 'white',
+ },
+ buttonActive: {
+   borderBottomColor: '#ffffff',
+ },
+ pagerView: {
+   flex: 1,
+ },
+ page: {
+   padding: 20,
+ },
+ postContainer: {
+   backgroundColor: '#1c1c1e',
+   padding: 10,
+   borderRadius: 10,
+   marginVertical: 8,
+   shadowColor: '#000',
+   elevation: 5,
+ },
+ imageHeader: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   padding: 10,
+ },
+ nameText: {
+   fontSize: 16,
+   fontWeight: '500',
+   color: '#ccc',
+ },
+ lockIcon: {
+   color: '#ccc',
+ },
+ image: {
+   width: '100%',
+   height: 300,
+   borderRadius: 15,
+ },
+ caption: {
+   fontSize: 16,
+   color: '#ccc',
+   padding: 10,
+ },
+ floatingButtonsContainer: {
+   position: 'absolute',
+   bottom: 20,
+   right: 20,
+   flexDirection: 'row',
+ },
+ floatingButton: {
+   backgroundColor: '#282828',
+   borderRadius: 30,
+   padding: 10,
+   marginLeft: 10,
+ },
+ groupCard: {
+   padding: 10,
+   borderRadius: 10,
+   backgroundColor: '#1c1c1e',
+   margin: 5,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.25,
+   shadowRadius: 3.84,
+   elevation: 5,
+ },
+ groupName: {
+   fontSize: 18,
+   fontWeight: 'bold',
+   marginBottom: 10,
+   color: '#ccc',
+ },
+ postGrid: {
+   flexDirection: 'row',
+   flexWrap: 'wrap',
+   justifyContent: 'center',
+ },
+ postTile: {
+   width: '25%',
+   aspectRatio: 1,
+   padding: 2,
+ },
+ postImage: {
+   width: '100%',
+   height: '100%',
+   borderRadius: 5,
+ },
+ profileImage: {
+   width: '100%',
+   height: '100%',
+   borderRadius: 50,
+   backgroundColor: '#ccc',
+ },
+ noProfilePic: {
+   justifyContent: 'center',
+   alignItems: 'center',
+ },
+ noProfilePicText: {
+   color: '#fff',
+   fontWeight: 'bold',
+ },
+});
+
+export default FeedScreen;
+
+// Content of components\mainscreens\FriendsScreen.js
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs } from 'firebase/firestore';
+import { Image } from 'expo-image';
+
+function FriendsScreen({ navigation }) {
+    const [friends, setFriends] = useState([]);
+    const [usernameToAdd, setUsernameToAdd] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [invites, setInvites] = useState([]);
+
+    useEffect(() => {
+        fetchFriends();
+    }, []);
+
+    const fetchFriends = async () => {
+        setLoading(true);
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const friendIds = userSnap.data().friends || [];
+          const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
+          const friendSnaps = await Promise.all(friendQueries);
+          const friendsData = friendSnaps.map((snap) => snap.data());
+          setFriends(friendsData);
+        }
+        setLoading(false);
+    };
+
+    const sendFriendRequest = async () => {
+        if (!usernameToAdd.trim()) {
+            Alert.alert("Error", "Please enter a valid username.");
+            return;
+        }
+        setLoading(true);
+        const usersQuery = query(collection(db, "users"), where("username", "==", usernameToAdd));
+        const querySnapshot = await getDocs(usersQuery);
+        if (querySnapshot.empty) {
+            setLoading(false);
+            Alert.alert("Error", "No user found with this username.");
+            return;
+        }
+
+        const userDoc = querySnapshot.docs[0];
+        const targetUserId = userDoc.id;
+        if (targetUserId === auth.currentUser.uid) {
+            setLoading(false);
+            Alert.alert("Error", "You cannot send a friend request to yourself.");
+            return;
+        }
+
+        const targetUserRef = doc(db, 'users', targetUserId);
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        const currentUserSnap = await getDoc(currentUserRef);
+        const currentUserData = currentUserSnap.data();
+
+        if (currentUserData.friends && currentUserData.friends.some(friend => friend.id === targetUserId)) {
+            setLoading(false);
+            Alert.alert("Error", "This user is already your friend.");
+            return;
+        }
+
+        await updateDoc(currentUserRef, {
+            sentRequests: arrayUnion(targetUserId)
+        });
+
+        await updateDoc(targetUserRef, {
+            friendRequests: arrayUnion({ from: auth.currentUser.uid, username: currentUserData.username })
+        });
+
+        setLoading(false);
+        Alert.alert("Success", "Friend request sent.");
+        setUsernameToAdd('');
+    };
+
+    const acceptFriendRequest = async (request) => {
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        const friendUserRef = doc(db, 'users', request.from);
+
+        await updateDoc(currentUserRef, {
+            friends: arrayUnion(request.from),
+            friendRequests: arrayRemove(request)
+        });
+        await updateDoc(friendUserRef, {
+            friends: arrayUnion(auth.currentUser.uid)
+        });
+
+        fetchFriendsAndInvites();
+    };
+
+    const denyFriendRequest = async (request) => {
+        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(currentUserRef, {
+            friendRequests: arrayRemove(request)
+        });
+        fetchFriendsAndInvites();
+    };
+
+    return (
+        <View style={styles.container}>
+            <Text style={styles.title}>My Friends</Text>
+            <TextInput
+                style={styles.input}
+                onChangeText={setUsernameToAdd}
+                value={usernameToAdd}
+                placeholder="Enter username to add"
+                placeholderTextColor="#ccc"
+            />
+            <Button title="Send Friend Request" onPress={sendFriendRequest} disabled={loading} color="#fff" />
+            {loading && <ActivityIndicator size="large" color="#fff" />}
+            <FlatList
+                data={friends}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                    <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.uid })}>
+                    <View  style={styles.friendItem}>
+                        <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
+                        <Text style={styles.friendName}>{item.username}</Text>
+                    </View>
+                    </TouchableOpacity>
+                )}
+            />
+            <Text style={styles.title}>Friend Requests</Text>
+            <FlatList
+                data={invites}
+                keyExtractor={item => item.from}
+                renderItem={({ item }) => (
+                    <View style={styles.inviteItem}>
+                        <Text style={styles.inviteText}>{item.username}</Text>
+                        <Button title="Accept" onPress={() => acceptFriendRequest(item)} color="#fff" />
+                        <Button title="Deny" onPress={() => denyFriendRequest(item)} color="#fff" />
+                    </View>
+                )}
+            />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 10,
+        backgroundColor: '#000', // Black background
+        paddingTop: 50,
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: 'white', // White text for titles
+    },
+    input: {
+        height: 40,
+        marginBottom: 12,
+        borderWidth: 1,
+        padding: 10,
+        borderRadius: 5,
+        borderColor: 'white', // White border for input
+        color: 'white', // White text input
+        backgroundColor: '#191919', // Darker black for input background
+    },
+    friendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+        padding: 10,
+        backgroundColor: '#232323', // Dark gray for items
+    },
+    profilePic: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 10,
+    },
+    friendName: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: 'white', // White text for names
+    },
+    inviteItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        padding: 10,
+        backgroundColor: '#232323', // Consistent with friendItem
+    },
+    inviteText: {
+        color: 'white', // Consistent text color
+    }
+});
+
+export default FriendsScreen;
+
+// Content of components\mainscreens\ProfileScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Image, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { auth, db, storage } from '../../firebaseConfig';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, FlipType, SaveFormat } from 'expo-image-manipulator';
+
+function ProfileScreen({ route }) {
+  const [username, setUsername] = useState('');
+  const [profilePicture, setProfilePicture] = useState('https://via.placeholder.com/100');
+  const [name, setName] = useState('John Doe');
+  const [posts, setPosts] = useState([]);
+  const [streaks, setStreaks] = useState({});
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      setUsername(userData.username);
+      setName(userData.name);
+      setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
+      setPosts(userData.posts || []);
+      setStreaks(userData.streaks || {});
+    } else {
+      console.log('No such document!');
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!username.trim()) return;
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    try {
+      await updateDoc(userRef, { username });
+      alert('Profile updated successfully!');
+    } catch (error) {
+      alert('Failed to update profile: ' + error.message);
+    }
+  };
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert("You've refused to allow this app to access your photos!");
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (pickerResult.cancelled) {
+      return;
+    }
+
+    const manipResult = await manipulateAsync(
+      pickerResult.assets[0].uri,
+      [{ resize: { width: 200, height: 200 } }],
+      { compress: 0.1, format: SaveFormat.JPEG }
+    );
+
+    const uploadUrl = await uploadImage(manipResult.uri);
+    setProfilePicture(uploadUrl);
+    updateProfilePicture(uploadUrl);
+  };
+
+  const uploadImage = async (uri) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const fileRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+
+    await uploadBytes(fileRef, blob);
+    return getDownloadURL(fileRef);
+  };
+
+  const updateProfilePicture = async (url) => {
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    await updateDoc(userRef, { profilePicture: url });
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
+        <Text style={styles.name}>{name}</Text>
+        <Button title="Change Picture" onPress={pickImage} color="#fff" />
+      </View>
+      <View style={styles.stats}>
+        <Text style={styles.stat}>Posts: {posts.length}</Text>
+        <Text style={styles.stat}>Streak: {streaks.current}</Text>
+      </View>
+      <View style={styles.posts}>
+        {posts.map((post, index) => (
+          <View key={index} style={styles.post}>
+            <Text style={styles.postText}>{post.text}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.usernameSection}>
+        <Text style={styles.label}>Username:</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Update username"
+          placeholderTextColor="#ccc"
+          value={username}
+          onChangeText={setUsername}
+        />
+        <Button title="Update Profile" onPress={handleUpdateProfile} color="#fff" />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#000', // Dark background for black and white theme
+    paddingTop: 50,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  profilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginRight: 10,
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white', // White text for better contrast
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  stat: {
+    fontSize: 16,
+    color: 'white', // White text for stats
+  },
+  posts: {
+    flex: 1,
+  },
+  post: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#232323', // Slightly lighter border for contrast
+  },
+  postText: {
+    color: 'white', // White text for post content
+  },
+  usernameSection: {
+    padding: 10,
+  },
+  label: {
+    fontSize: 16,
+    color: 'white', // White label text
+  },
+  input: {
+    width: '100%',
+    marginVertical: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fff', // White border for input
+    borderRadius: 5,
+    color: 'white', // White input text
+    backgroundColor: '#191919', // Darker black for input background
+  },
+});
+
+export default ProfileScreen;
+
+// Content of components\mainscreens\Settings.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, Switch, ScrollView } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
+
+function SettingsScreen() {
+    const [settings, setSettings] = useState({
+        email: '',
+        password: '',
+        pushNotifications: false,
+        emailNotifications: false,
+        defaultGroup: '',
+        uploadQuality: '',
+        uploadFormat: '',
+        groupNotifications: false,
+        units: '',
+        dateFormat: '',
+        firstDayOfWeek: '',
+        privateAccount: false,
+        blockedUsers: [],
+        termsOfService: '',
+        privacyPolicy: '',
+        helpAndFAQs: ''
+    });
+
+    // Fetch user settings from Firestore
+    useEffect(() => {
+        async function fetchSettings() {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists()) {
+                setSettings(docSnap.data());
+            }
+        }
+        fetchSettings();
+    }, []);
+
+    // Function to update user settings in Firestore
+    const saveSettings = async () => {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, settings);
+        alert('Settings updated successfully!');
+    };
+
+    return (
+        <ScrollView>
+            <View>
+                <Text>Email</Text>
+                <TextInput value={settings.email} onChangeText={(text) => setSettings(prev => ({ ...prev, email: text }))} />
+                <Text>Password</Text>
+                <TextInput value={settings.password} secureTextEntry onChangeText={(text) => setSettings(prev => ({ ...prev, password: text }))} />
+                <Text>Push Notifications</Text>
+                <Switch onValueChange={() => setSettings(prev => ({ ...prev, pushNotifications: !prev.pushNotifications }))} value={settings.pushNotifications} />
+                <Text>Email Notifications</Text>
+                <Switch onValueChange={() => setSettings(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }))} value={settings.emailNotifications} />
+                <Text>Default Group</Text>
+                <TextInput value={settings.defaultGroup} onChangeText={(text) => setSettings(prev => ({ ...prev, defaultGroup: text }))} />
+                <Text>Upload Quality</Text>
+                <TextInput value={settings.uploadQuality} onChangeText={(text) => setSettings(prev => ({ ...prev, uploadQuality: text }))} />
+                <Text>Upload Format</Text>
+                <TextInput value={settings.uploadFormat} onChangeText={(text) => setSettings(prev => ({ ...prev, uploadFormat: text }))} />
+                <Text>Group Notifications</Text>
+                <Switch onValueChange={() => setSettings(prev => ({ ...prev, groupNotifications: !prev.groupNotifications }))} value={settings.groupNotifications} />
+                <Text>Units</Text>
+                <TextInput value={settings.units} onChangeText={(text) => setSettings(prev => ({ ...prev, units: text }))} />
+                <Text>Date and Time Format</Text>
+                <TextInput value={settings.dateFormat} onChangeText={(text) => setSettings(prev => ({ ...prev, dateFormat: text }))} />
+                <Text>First Day of the Week</Text>
+                <TextInput value={settings.firstDayOfWeek} onChangeText={(text) => setSettings(prev => ({ ...prev, firstDayOfWeek: text }))} />
+                <Text>Private Account</Text>
+                <Switch onValueChange={() => setSettings(prev => ({ ...prev, privateAccount: !prev.privateAccount }))} value={settings.privateAccount} />
+                <Button title="Save Settings" onPress={saveSettings} />
+            </View>
+        </ScrollView>
+    );
+}
+
+export default SettingsScreen;
+
+
+// Content of components\mainscreens\UserProfileScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { db } from '../../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+
+function UserProfileScreen({ route }) {
+  const { userId } = route.params;
+  const [user, setUser] = useState(null);
+  const [posts, setPosts] = useState([]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const docRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setUser(docSnap.data());
+      } else {
+        console.log("No such user!");
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {user && (
+        <>
+          <Text>Username: {user.username}</Text>
+          <FlatList
+            data={posts}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => <Text>{item.caption}</Text>}
+          />
+        </>
+      )}
+    </View>
+  );
+}
+
+export default UserProfileScreen;
+
+
+// Content of components\posts\PostDetailScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Button, Alert } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc, collection, query, getDocs, addDoc } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
+
+const blurhash =
+  '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
+
+function PostDetailScreen({ route }) {
+  const { postId } = route.params;
+  const [post, setPost] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    async function fetchPostAndComments() {
+      const postRef = doc(db, 'posts', postId);
+      const postSnap = await getDoc(postRef);
+
+      if (postSnap.exists()) {
+        const postData = {
+          id: postSnap.id,
+          ...postSnap.data(),
+          createdAt: postSnap.data().createdAt.toDate()
+        };
+        setPost(postData);
+
+        const commentsQuery = query(collection(db, `posts/${postId}/comments`));
+        const commentsSnapshot = await getDocs(commentsQuery);
+        const commentsData = commentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt.toDate()
+        }));
+
+        setComments(commentsData);
+      } else {
+        console.log("No such document!");
+      }
+    }
+
+    fetchPostAndComments();
+  }, [postId]);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) {
+      Alert.alert("Error", "Please enter a comment before posting.");
+      return;
+    }
+
+    const commentData = {
+      text: newComment,
+      createdAt: new Date(),
+      userId: auth.currentUser.uid,
+      likes: []
+    };
+
+    const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
+    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      commentData.username = userSnap.data().username;
+      commentData.id = newCommentRef.id; // Use Firestore generated ID for the comment
+      setComments([...comments, commentData]);
+    }
+    setNewComment('');
+  };
+
+  return (
+    <View style={styles.container}>
+      {post && (
+        <>
+          <Text style={styles.caption}>{post.caption}</Text>
+          <Image
+            style={styles.image}
+            source={{ uri: post.imageUrl }}
+            placeholder={{ uri: blurhash }}
+            contentFit="cover"
+            transition={1000}
+          />
+          <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: post.createdBy })}>
+            <Text style={styles.username}>{post.username}</Text>
+          </TouchableOpacity>
+          <FlatList
+            data={comments}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.commentContainer}>
+                <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.userId })}>
+                  <Text style={styles.username}>{item.username}</Text>
+                </TouchableOpacity>
+                <Text style={styles.commentText}>{item.text}</Text>
+                <Text style={styles.timestamp}>{item.createdAt.toLocaleString()}</Text>
+              </View>
+            )}
+          />
+          <TextInput
+            value={newComment}
+            onChangeText={setNewComment}
+            style={styles.input}
+            placeholder="Write a comment..."
+            placeholderTextColor="#ccc"
+          />
+          <Button title="Add Comment" onPress={handleAddComment} color="#fff" />
+        </>
+      )}
+      {!post && <Text>Loading post...</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000', // Dark background
+    padding: 10,
+    paddingTop: 50,
+    paddingBottom: 100,
+  },
+  image: {
+    width: '100%',
+    height: 300,
+    marginBottom: 10,
+  },
+  caption: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    color: 'white',
+    marginBottom: 10,
+  },
+  username: {
+    fontWeight: 'bold',
+    color: '#ccc', // Subtle contrast
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  commentContainer: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#282828', // Slightly lighter border for contrast
+    marginBottom: 5,
+  },
+  commentText: {
+    color: 'white', // White text for comments
+    fontSize: 14,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#7e7e7e', // Grey for timestamps
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#fff', // White border for input
+    padding: 10,
+    marginVertical: 10,
+    color: 'white', // White text for input
+    backgroundColor: '#191919', // Darker black for input background
+    borderRadius: 5,
+  }
+});
+
+export default PostDetailScreen;
+
+
+// Content of components\posts\PostScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Button, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { storage, db, auth } from '../../firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import RNPickerSelect from 'react-native-picker-select';
+
+function PostScreen({ route }) {
+  const { groupId } = route.params || {};
+  const [image, setImage] = useState(null);
+  const [caption, setCaption] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(groupId || null);
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
+      const snapshot = await getDocs(q);
+      const groupsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        public: doc.data().public
+      }));
+      setGroups(groupsData);
+      if (!selectedGroup && groupsData.length > 0 && !groupId) {
+        setSelectedGroup(groupsData[0].id);
+      }
+    };
+    fetchGroups();
+  }, []);
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert("Permission required", "You need to allow access to your photos to upload an image.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (result.cancelled) {
+      setImage(null);
+      return;
+    }
+
+    const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+    setImage(manipResult.uri);
+  };
+
+  const handleUpload = async () => {
+    if (!image) {
+      Alert.alert("Upload Error", "Please select an image to upload.");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        throw new Error("User does not exist");
+      }
+      const username = userSnap.data().username;
+
+      const response = await fetch(image);
+      const blob = await response.blob();
+      const fileRef = ref(storage, `posts/${Date.now()}`);
+
+      await uploadBytes(fileRef, blob);
+      const imageUrl = await getDownloadURL(fileRef);
+
+      const newPost = {
+        imageUrl,
+        caption,
+        createdBy: auth.currentUser.uid,
+        createdByUsername: username,
+        createdAt: new Date(),
+        groupName: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
+        groupId: selectedGroup,
+        isPublic: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
+      };
+
+      const newPostRef = await addDoc(collection(db, 'posts'), newPost);
+
+      if (selectedGroup) {
+        await updateDoc(doc(db, 'groups', selectedGroup), {
+          posts: arrayUnion(newPostRef.id)
+        });
+      }
+
+      Alert.alert('Success', 'Post uploaded successfully!');
+      setImage(null);
+      setCaption('');
+    } catch (error) {
+      console.error("Error uploading post:", error);
+      Alert.alert("Upload Error", error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+          <Text style={styles.buttonText}>Pick an image from camera roll</Text>
+        </TouchableOpacity>
+        {image && <Image source={{ uri: image }} style={styles.image} />}
+        <TextInput
+          style={styles.input}
+          placeholder="Write a caption..."
+          placeholderTextColor="#ccc"
+          value={caption}
+          onChangeText={setCaption}
+          multiline
+        />
+        <RNPickerSelect
+          onValueChange={(value) => setSelectedGroup(value)}
+          items={groups.map(group => ({ label: group.name, value: group.id }))}
+          style={pickerSelectStyles}
+          value={selectedGroup}
+          useNativeAndroidPickerStyle={false}
+          placeholder={{ label: "Select a group...", value: null }}
+        />
+        <TouchableOpacity style={styles.uploadButton} onPress={handleUpload} disabled={uploading}>
+          <Text style={styles.buttonText}>Upload Post</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#000',
+  },
+  image: {
+    width: 300,
+    height: 300,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  input: {
+    width: '90%',
+    minHeight: 100,
+    padding: 15,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    color: 'white',
+    backgroundColor: '#191919',
+    marginBottom: 20,
+    fontSize: 16,
+  },
+  imagePickerButton: {
+    marginBottom: 20,
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    backgroundColor: '#333',
+  },
+  uploadButton: {
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 10,
+    backgroundColor: '#333',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  }
+});
+
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 4,
+    color: 'white',
+    paddingRight: 30,
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 8,
+    color: 'white',
+    paddingRight: 30,
+  },
+});
+
+export default PostScreen;
+
+

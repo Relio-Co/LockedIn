@@ -166,6 +166,27 @@ function AuthScreen() {
     <View style={styles.container}>
       <Text style={styles.logoText}>LockedIn</Text>
 
+      {isNewUser && (
+        <TouchableOpacity
+          style={styles.profilePictureButton}
+          onPress={pickImage}
+        >
+          {profilePicture ? (
+            <Image
+              source={{ uri: profilePicture }}
+              style={styles.profilePicture}
+            />
+          ) : (
+            <Ionicons
+              name="camera-outline"
+              size={24}
+              color="#02fff1"
+              style={styles.icon}
+            />
+          )}
+        </TouchableOpacity>
+      )}
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -185,25 +206,6 @@ function AuthScreen() {
       />
       {isNewUser ? (
         <>
-          <TouchableOpacity
-            style={styles.profilePictureButton}
-            onPress={pickImage}
-          >
-            {profilePicture ? (
-              <Image
-                source={{ uri: profilePicture }}
-                style={styles.profilePicture}
-              />
-            ) : (
-              <Ionicons
-                name="camera-outline"
-                size={24}
-                color="#02fff1"
-                style={styles.icon}
-              />
-            )}
-          </TouchableOpacity>
-
           <TextInput
             style={styles.input}
             placeholder="Username"

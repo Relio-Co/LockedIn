@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file displays a post detail screen with its caption, image, and comments. It also allows users to add new comments to the post, fetching data from Firebase Firestore database. */
+/* [AI Bug Review] The bug/fault is that the `postId` is not checked for null or undefined before using it in the useEffect dependency array, which can cause an error if `route.params.postId` is not present.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Button, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, getDocs, addDoc } from 'firebase/firestore';

@@ -1,0 +1,253 @@
+// Documentation for components\authentication\AuthScreen.js
+Here is the bullet form documentation for the variables and functions in the given JavaScript code:
+
+**Variables**
+
+* `email`: a state variable to store the email input by the user
+* `password`: a state variable to store the password input by the user
+* `isNewUser`: a state variable to track whether the user is signing up or logging in
+* `fadeAnim`: an animated value to control the opacity of buttons
+
+**Functions**
+
+* `fadeIn()`: starts an animation to increase the opacity of buttons
+* `fadeOut()`: starts an animation to decrease the opacity of buttons
+* `handleLogin()`: handles login functionality, including checking for valid inputs and calling Firebase authentication functions
+* `handleSignUp()`: handles sign up functionality, including creating a new user profile in Firebase and storing it in local storage
+* `setEmail(setEmail)`: sets the email state variable
+* `setPassword(setPassword)`: sets the password state variable
+
+// Documentation for components\groups\CreateGroupScreen.js
+Here is the bullet-point documentation for the variables and functions in the provided JavaScript code:
+
+**Variables**
+
+• `groupName`: unknown type, initialized with an empty string
+• `groupDesc`: unknown type, initialized with an empty string
+• `isPublic`: boolean, initialized to `true`
+• `newGroup`: object, containing properties `name`, `description`, `public`, `admins`, and `members`
+
+**Functions**
+
+• `handleCreateGroup`: async function, takes no arguments
+• `setGroupName`: sets the value of `groupName` to a new input
+• `setGroupDesc`: sets the value of `groupDesc` to a new input
+• `setIsPublic`: sets the value of `isPublic` to a new boolean value
+
+// Documentation for components\groups\GroupFeedScreen.js
+Here is the documentation in bullet form:
+
+**Variables:**
+
+• `groupId`
+• `group`
+• `posts`
+• `navigation`
+
+**Functions:**
+
+• `fetchGroupAndPosts`
+• `getDoc` (from 'firebase/firestore')
+• `Promise.all` (for handling multiple promises)
+• `setGroup`
+• `setPosts`
+• `Alert.alert` (for displaying an alert message)
+
+// Documentation for components\groups\GroupMembersScreen.js
+Here is the documentation for the variables and functions in the provided JavaScript code:
+
+**Variables**
+
+* `groupId`
+* `members` (an array)
+* `username`
+
+**Functions**
+
+* `fetchMembers()`
+* `handleAdminToggle(memberId)`
+* `handleRemoveMember(memberId)`
+* `handleInviteUser()`
+
+Let me know if you'd like me to clarify or expand on this documentation!
+
+// Documentation for components\groups\GroupScreen.js
+Here is the bullet point documentation for the variables and functions:
+
+**Variables**
+
+* `groups`: an array of group objects
+* `publicGroups`: an array of public group objects
+* `invites`: an array of invite objects
+* `refreshing`: a boolean indicating whether the data is being refreshed
+* `navigation`: an object from `@react-navigation/native` used to navigate between screens
+
+**Functions**
+
+* `loadGroupsFromStorage`: loads groups from local storage and sets the state if successful
+* `fetchGroups`: fetches groups from Firebase Firestore and sets the state
+* `fetchPublicGroups`: fetches public groups from Firebase Firestore and sets the state
+* `fetchInvites`: fetches group invites from Firebase Firestore and sets the state
+* `getMemberCount`: calculates the number of members in a group
+* `handleJoinGroup`: joins a group on behalf of the user and updates the local storage and Firebase Firestore
+
+Note: I did not include documentation for the CSS styles, as they are not relevant to the functionality of the code.
+
+// Documentation for components\groups\GroupSettingsScreen.js
+Here is the documentation in bullet form:
+
+**Variables:**
+• `groupId`
+• `groupName`
+• `groupDesc`
+• `isPublic`
+
+**Functions:**
+• `updateGroupSettings`
+
+// Documentation for components\mainscreens\FeedScreen.js
+Here is the documentation for the variables and styles used in the provided JavaScript code:
+
+**Variables**
+
+* `posts`: An array of post objects, likely fetched from a backend API.
+* `refreshing`: A boolean indicating whether the data is currently being refreshed.
+* `handleRefresh`: A function responsible for refreshing the data.
+* `navigation`: The navigation object used to navigate between screens.
+* `blurhash`: The URI of a placeholder image used when no image is available.
+
+**Styles**
+
+* `container`: The main container style, with properties like padding, flex direction, and background color.
+* `tabBar`: Style for the tab bar component, with properties like flex direction and border color.
+* `toggleButton`: Style for the toggle button component, with properties like flex, alignment, padding, and border width and color.
+* `toggleText`: Style for the text displayed in the toggle button, with properties like font size, weight, and color.
+* `buttonActive`: Style applied when the toggle button is active, with a different border color.
+* `pagerView`: Style for the pager view component, with property like flex.
+* `page`: Style for each page in the pager view, with properties like padding.
+* `postContainer`: Style for the post container component, with properties like background color, padding, and shadow.
+* `imageHeader`: Style for the image header component, with properties like flex direction and padding.
+* `nameText`: Style for the text displayed in the image header, with properties like font size, weight, and color.
+* `lockIcon`: Style for the lock icon displayed in the image header, with property like color.
+* `image`: Style for the image component, with properties like width, height, and border radius.
+* `caption`: Style for the caption text, with properties like font size, color, and padding.
+* `floatingButtonsContainer`: Style for the floating buttons container, with properties like position, bottom margin, and right margin.
+* `floatingButton`: Style for each floating button, with properties like background color, border radius, and padding.
+* `groupCard`: Style for the group card component, with properties like padding, border radius, and shadow.
+* `groupName`: Style for the text displayed in the group card, with properties like font size, weight, and color.
+* `postGrid`: Style for the post grid component, with properties like flex direction and flex wrap.
+* `postTile`: Style for each post tile, with properties like width, aspect ratio, and padding.
+* `postImage`: Style for the image component in each post tile, with properties like width, height, and border radius.
+* `profileImage`: Style for the profile image component, with properties like width, height, and border radius.
+* `noProfilePic`: Style applied when no profile picture is available, with properties like flex direction and alignment.
+* `noProfilePicText`: Style for the text displayed in the "No Profile Pic" case, with properties like font size, weight, and color.
+
+// Documentation for components\mainscreens\FriendsScreen.js
+Here is the documentation of variables and functions in bullet points:
+
+**Variables**
+
+• `friends`: an array
+• `usernameToAdd`: a string
+• `loading`: a boolean
+• `invites`: an array
+
+**Functions**
+
+• `fetchFriends()`
+• `sendFriendRequest()`
+• `acceptFriendRequest(request)`
+• `denyFriendRequest(request)`
+• `fetchFriendsAndInvites()`
+
+// Documentation for components\mainscreens\ProfileScreen.js
+Here is the documentation in bullet form:
+
+**Variables**
+
+* `username`
+* `profilePicture`
+* `name`
+* `posts`
+* `streaks`
+* `route`
+
+**Functions**
+
+* `fetchUserData`
+* `handleUpdateProfile`
+* `pickImage`
+* `uploadImage`
+* `updateProfilePicture`
+
+// Documentation for components\mainscreens\Settings.js
+Here is the bullet point documentation for the variables and functions in the JavaScript code:
+
+**Variables:**
+
+* `settings`: an object containing various user settings
+* `setSettings`: a function to update the `settings` state
+* `userRef`: a reference to a document in Firestore
+* `docSnap`: a snapshot of the user's document data from Firestore
+
+**Functions:**
+
+* `fetchSettings`: asynchronously fetches the user's settings from Firestore and updates the `settings` state
+* `saveSettings`: asynchronously updates the user's settings in Firestore and displays an alert message when complete
+
+// Documentation for components\mainscreens\UserProfileScreen.js
+Here is the documentation in bullet point form:
+
+**Variables:**
+
+• `userId`
+• `user`
+• `posts`
+
+**Functions:**
+
+• `UserProfileScreen`
+• `fetchUser`
+
+// Documentation for components\posts\PostDetailScreen.js
+Here are the variables and functions in bullet points:
+
+**Variables:**
+
+* `postId`
+* `post`
+* `comments`
+* `newComment`
+* `navigation`
+* `blurhash`
+
+**Functions:**
+
+* `PostDetailScreen`
+	+ takes a single argument `route`
+* `fetchPostAndComments`
+* `handleAddComment`
+* `getDoc` (imported from `firebase/firestore`)
+* `getDocs` (imported from `firebase/firestore`)
+* `addDoc` (imported from `firebase/firestore`)
+
+// Documentation for components\posts\PostScreen.js
+Here is the documentation of variables and functions in the provided JavaScript code:
+
+**Variables**
+
+* `groupId`: unknown type, set from `route.params` or null if not available
+* `image`: null or a URI string, set using `setImage`
+* `caption`: empty string, set using `setCaption`
+* `uploading`: boolean, set using `setUploading`
+* `groups`: array of objects, set using `setGroups`
+* `selectedGroup`: null or the ID of a group, set using `setSelectedGroup`
+
+**Functions**
+
+* `PostScreen`: a React functional component
+* `pickImage`: an async function that opens the image picker and sets the selected image to `image` state
+* `handleUpload`: an async function that uploads the selected image to Firebase Storage, sets the uploaded post in Firestore, and updates the group posts if applicable
+
+Let me know if you have any further questions!
+

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file displays a group feed screen, showing posts from a specific group that the user is a member of. It fetches data from Firebase Firestore and renders a list of posts with details such as title, content, image, and posted by information, along with navigation to post detail and group settings screens if the user is an admin. */
+/* [AI Bug Review] The bug is that the `groupId` in the `useEffect` dependency array `[groupId]` should be removed, as it's already defined within the component.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';

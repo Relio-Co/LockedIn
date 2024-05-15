@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+/* [AI Doc Review] This React Native file is a friends management screen, allowing the user to view their existing friends, send and receive friend requests, and manage incoming and outgoing friend requests. */
+/* [AI Bug Review] The bug is that the `setUsernameToAdd` function is not defined as a callback for the `onChangeText` prop of the `TextInput`. It should be defined as `(text) => setUsernameToAdd(text)` to update the state correctly.*/
+ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs } from 'firebase/firestore';

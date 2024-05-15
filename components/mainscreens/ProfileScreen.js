@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file is a profile screen component that displays a user's information, including their name, profile picture, and posts. The component also allows the user to update their username and change their profile picture from their phone gallery. */
+/* [AI Bug Review] The bug is that the `useState` hook is not properly updating the state with the new username in the `handleUpdateProfile` function.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Image, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';

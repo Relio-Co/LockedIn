@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file displays a screen to manage group members, allowing the user to invite new users, toggle admin status, and remove existing members from a Firebase Firestore-based group. */
+/* [AI Bug Review] `fetchMembers()` is called with an empty dependency array (`[groupId]`) in the `useEffect`, which means it will not be re-run when the `groupId` changes.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, TextInput, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, query, getDocs, where } from 'firebase/firestore';

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file is a settings screen that allows users to view and edit their account settings, including email, password, push notifications, email notifications, default group, upload quality, upload format, and other preferences, which are stored in Firebase Firestore. */
+/* [AI Bug Review] The bug is that the `getDoc` function is not defined in this code. It seems to be a custom Firebase Firestore function, but it's not imported or defined anywhere.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Switch, ScrollView } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, updateDoc } from 'firebase/firestore';

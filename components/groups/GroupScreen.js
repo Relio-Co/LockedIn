@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file displays a list of groups that the user is a part of, as well as public groups and group invites. It allows the user to join or leave groups, refreshes the data when necessary, and provides navigation to other screens. */
+/* [AI Bug Review] The code does not handle the case where `getDoc` or `getDocs` promise resolves with an error.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';

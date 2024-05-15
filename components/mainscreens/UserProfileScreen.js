@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file retrieves a user's profile data and posts from a Firebase Firestore database, displaying the username and post captions in a FlatList component. */
+/* [AI Bug Review] The bug is that the `fetchUser` function is not setting the `posts` state variable when fetching data from Firebase, so the FlatList will always render an empty list.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { db } from '../../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+/* [AI Doc Review] This React Native file is a functional component that renders a screen for posting an image to social media, allowing the user to select an image from their camera roll, add a caption, and choose a group to post it in. The component uses various Firebase services (Storage, Firestore, Authentication) to upload the image and store the post's metadata, as well as React Native components (Image, TextInput, TouchableOpacity, ScrollView) for rendering the user interface. */
+/* [AI Bug Review] The bug is that the `imagePickerButton` TouchableOpacity component does not properly handle the press event. The onPress handler should be called when the button is pressed, but since there are no children within the TouchableOpacity, it won't respond to touch events.*/
+ import React, { useState, useEffect } from 'react';
 import { View, Button, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';

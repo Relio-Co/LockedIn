@@ -229,7 +229,7 @@ function AuthScreen() {
           </Animated.View>
         </>
       ) : (
-        <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
+        
           <TouchableOpacity
             onPress={() => {
               handleLogin();
@@ -239,9 +239,11 @@ function AuthScreen() {
             onPressIn={fadeOut}
             onPressOut={fadeIn}
           >
+            <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
             <Text style={styles.buttonText}>Login</Text>
+            </Animated.View>
           </TouchableOpacity>
-        </Animated.View>
+        
       )}
       <TouchableOpacity
         onPress={() => setIsNewUser(!isNewUser)}

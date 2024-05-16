@@ -27,15 +27,34 @@ function PostDetailScreen({ route }) {
           ...postSnap.data(),
           createdAt: postSnap.data().createdAt.toDate()
         };
+
+        const userRef = doc(db, 'users', postData.createdBy);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          postData.username = userSnap.data().username;
+          postData.streakScore = userSnap.data().streakScore;
+        }
+
         setPost(postData);
 
         const commentsQuery = query(collection(db, `posts/${postId}/comments`));
         const commentsSnapshot = await getDocs(commentsQuery);
-        const commentsData = commentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt.toDate()
-        }));
+        const commentsData = await Promise.all(
+          commentsSnapshot.docs.map(async (doc) => {
+            const commentData = {
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt.toDate()
+            };
+
+            const userRef = doc(db, 'users', commentData.userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              commentData.username = userSnap.data().username;
+            }
+            return commentData;
+          })
+        );
 
         setComments(commentsData);
       } else {
@@ -118,7 +137,7 @@ function PostDetailScreen({ route }) {
 
   return (
     <View style={styles.container}>
-      {post && (
+      {post ? (
         <>
           <Text style={styles.caption}>{post.caption}</Text>
           <Image
@@ -129,7 +148,7 @@ function PostDetailScreen({ route }) {
             transition={1000}
           />
           <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: post.createdBy })}>
-            <Text style={styles.username}>{post.username}</Text>
+            <Text style={styles.username}>{post.username} - Streak: {post.streakScore}</Text>
           </TouchableOpacity>
           {post.createdBy === auth.currentUser.uid && (
             <Button title="Delete Post" onPress={handleDeletePost} color="#ff4444" />
@@ -156,8 +175,9 @@ function PostDetailScreen({ route }) {
           />
           <Button title="Add Comment" onPress={handleAddComment} color="#fff" />
         </>
+      ) : (
+        <Text>Loading post...</Text>
       )}
-      {!post && <Text>Loading post...</Text>}
     </View>
   );
 }

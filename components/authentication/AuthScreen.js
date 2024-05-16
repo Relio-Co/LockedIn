@@ -75,7 +75,6 @@ function AuthScreen() {
       [{ resize: { width: 200, height: 200 } }],
       { compress: 0.1, format: SaveFormat.JPEG }
     );
-    console.log("n", manipResult.uri);
     if (manipResult.uri) {
       const uploadUrl = await uploadImage(manipResult.uri);
       setProfilePicture(uploadUrl);
@@ -229,21 +228,19 @@ function AuthScreen() {
           </Animated.View>
         </>
       ) : (
-        
-          <TouchableOpacity
-            onPress={() => {
-              handleLogin();
-              fadeIn();
-            }}
-            activeOpacity={0.7}
-            onPressIn={fadeOut}
-            onPressOut={fadeIn}
-          >
-            <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
+        <TouchableOpacity
+          onPress={() => {
+            handleLogin();
+            fadeIn();
+          }}
+          activeOpacity={0.7}
+          onPressIn={fadeOut}
+          onPressOut={fadeIn}
+        >
+          <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
             <Text style={styles.buttonText}>Login</Text>
-            </Animated.View>
-          </TouchableOpacity>
-        
+          </Animated.View>
+        </TouchableOpacity>
       )}
       <TouchableOpacity
         onPress={() => setIsNewUser(!isNewUser)}

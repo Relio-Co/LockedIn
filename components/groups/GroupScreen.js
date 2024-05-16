@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert, TextInput } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,8 +9,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 function GroupsScreen() {
   const [groups, setGroups] = useState([]);
   const [publicGroups, setPublicGroups] = useState([]);
+  const [allGroups, setAllGroups] = useState([]);
   const [invites, setInvites] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -38,6 +40,7 @@ function GroupsScreen() {
         const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, 'groups', groupId))));
         const groupsData = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         setGroups(groupsData);
+        setAllGroups(groupsData.concat(publicGroups));
         await AsyncStorage.setItem('userGroups', JSON.stringify(groupsData));
       }
     } catch (error) {
@@ -52,6 +55,7 @@ function GroupsScreen() {
       const querySnapshot = await getDocs(publicGroupsQuery);
       const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPublicGroups(publicGroupsData);
+      setAllGroups(groups.concat(publicGroupsData));
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch public groups');
     }
@@ -98,10 +102,26 @@ function GroupsScreen() {
     navigation.navigate('CreateGroup');
   };
 
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+    if (text === '') {
+      setAllGroups(groups.concat(publicGroups));
+    } else {
+      const filteredGroups = allGroups.filter(group =>
+        group.name.toLowerCase().includes(text.toLowerCase())
+      );
+      setAllGroups(filteredGroups);
+    }
+  };
+
+  const isMember = (groupId) => {
+    return groups.some(group => group.id === groupId);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('FeedScreen')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('Feed')} style={styles.backButton}>
           <Icon name="arrow-left" size={20} color="white" />
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -111,58 +131,42 @@ function GroupsScreen() {
           <Text style={styles.createButtonText}>Create Group</Text>
         </TouchableOpacity>
       </View>
+      <TextInput
+        style={styles.searchBox}
+        placeholder="Search Groups"
+        placeholderTextColor="grey"
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
       <FlatList
-        data={groups}
+        data={[...groups, ...publicGroups.filter(group => !isMember(group.id))]}
         keyExtractor={item => item.id}
+        numColumns={2}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: item.id })}>
-            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
-            <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
+          <TouchableOpacity 
+            style={[styles.card, isMember(item.id) && styles.memberCard]}
+            onPress={isMember(item.id) ? () => navigation.navigate('GroupDetails', { groupId: item.id }) : null}
+          >
+            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.cardImage} />
+            <Text style={styles.cardText}>{item.name}</Text>
+            <Text style={styles.cardText}>{getMemberCount(item.members)} members</Text>
+            {!isMember(item.id) && (
+              <TouchableOpacity style={styles.cardButton} onPress={() => handleJoinGroup(item.id)}>
+                <Icon name="sign-in" size={20} color="white" />
+                <Text style={styles.cardButtonText}>Join</Text>
+              </TouchableOpacity>
+            )}
+            {isMember(item.id) && <Icon name="lock" size={20} color="white" style={styles.lockIcon} />}
           </TouchableOpacity>
         )}
         ListHeaderComponent={() => (
-          <>
-            {invites.length > 0 && (
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionHeaderText}>Group Invites</Text>
-                {invites.map(invite => (
-                  <TouchableOpacity key={invite.id} style={styles.listItemContainer} onPress={() => navigation.navigate('GroupDetails', { groupId: invite.id })}>
-                    <Image source={{ uri: invite.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
-                    <Text style={styles.listItemText}>{invite.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>Your Groups</Text>
-            </View>
-          </>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>All Groups</Text>
+          </View>
         )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={fetchGroups} />
         }
-      />
-      <FlatList
-        data={publicGroups}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.listItemContainer}>
-            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.profilePic} />
-            <View style={styles.publicGroupInfo}>
-              <Text style={styles.listItemText}>{item.name} - {getMemberCount(item.members)} members</Text>
-              {!groups.some(group => group.id === item.id) && (
-                <TouchableOpacity style={styles.joinButton} onPress={() => handleJoinGroup(item.id)}>
-                  <Text style={styles.joinButtonText}>Join</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-        ListHeaderComponent={() => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>Public Groups</Text>
-          </View>
-        )}
       />
     </View>
   );
@@ -212,39 +216,12 @@ const styles = StyleSheet.create({
     color: 'white',
     marginLeft: 5,
   },
-  listItemContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'white',
-  },
-  profilePic: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-  listItemText: {
-    fontSize: 18,
+  searchBox: {
+    backgroundColor: '#333',
     color: 'white',
-  },
-  publicGroupInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flex: 1,
-  },
-  joinButton: {
-    backgroundColor: '#1E90FF',
+    padding: 10,
+    margin: 20,
     borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  joinButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
   sectionHeader: {
     paddingVertical: 10,
@@ -254,6 +231,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
+  },
+  card: {
+    flex: 1,
+    backgroundColor: '#333',
+    borderRadius: 10,
+    padding: 20,
+    margin: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberCard: {
+    backgroundColor: '#1E90FF',
+  },
+  cardImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  cardText: {
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 5,
+  },
+  cardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#444',
+    padding: 5,
+    borderRadius: 5,
+    margin: 5,
+    justifyContent: 'center',
+  },
+  cardButtonText: {
+    color: 'white',
+    marginLeft: 5,
+  },
+  lockIcon: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
   },
 });
 

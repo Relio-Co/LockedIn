@@ -1,9 +1,7 @@
-/* [AI Doc Review] This React Native file displays a group feed screen, showing posts from a specific group that the user is a member of. It fetches data from Firebase Firestore and renders a list of posts with details such as title, content, image, and posted by information, along with navigation to post detail and group settings screens if the user is an admin. */
-/* [AI Bug Review] The bug is that the `groupId` in the `useEffect` dependency array `[groupId]` should be removed, as it's already defined within the component.*/
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -45,12 +43,47 @@ const GroupFeedScreen = ({ route }) => {
     fetchGroupAndPosts();
   }, [groupId]);
 
+  const leaveGroup = async () => {
+    Alert.alert(
+      'Leave Group',
+      'Are you sure you want to leave this group?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Leave',
+          onPress: async () => {
+            const groupRef = doc(db, 'groups', groupId);
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+
+            await updateDoc(groupRef, {
+              members: arrayRemove(auth.currentUser.uid)
+            });
+
+            await updateDoc(userRef, {
+              groups: arrayRemove(groupId)
+            });
+
+            Alert.alert("Success", "You have left the group.");
+            navigation.goBack();
+          }
+        }
+      ]
+    );
+  };
+
   const isAdmin = group && group.admins && group.admins.includes(auth.currentUser.uid);
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>{group ? group.name : 'Loading...'}</Text>
+      <Text style={styles.streak}>Group Streak: {group ? group.streak : 0} <Icon name="bolt" size={24} color="orange" /></Text>
       <View style={styles.iconBar}>
+      <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { groupId })}>
+          <Icon name="trophy" size={24} color="gold" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Post', { groupId })}>
           <Icon name="plus" size={24} color="white" />
         </TouchableOpacity>
@@ -61,6 +94,12 @@ const GroupFeedScreen = ({ route }) => {
         )}
         <TouchableOpacity onPress={() => navigation.navigate('GroupMembers', { groupId, isAdmin })}>
           <Icon name="users" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('GroupChat', { groupId })}>
+          <Icon name="comments" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={leaveGroup}>
+          <Icon name="sign-out" size={24} color="red" />
         </TouchableOpacity>
       </View>
       <FlatList
@@ -89,7 +128,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#000', // Dark background for black and white theme
+    backgroundColor: '#000',
     paddingTop: 50,
   },
   header: {
@@ -97,6 +136,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 20,
+  },
+  streak: {
+    color: 'orange',
+    fontSize: 18,
+    marginVertical: 10
   },
   iconBar: {
     flexDirection: 'row',
@@ -108,7 +152,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#fff',
     marginBottom: 10,
-    backgroundColor: '#191919', // Slightly lighter black for contrast
+    backgroundColor: '#191919',
   },
   postTitle: {
     fontSize: 18,

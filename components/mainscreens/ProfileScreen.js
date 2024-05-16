@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -12,6 +12,7 @@ function ProfileScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [profilePicture, setProfilePicture] = useState('https://via.placeholder.com/100');
   const [name, setName] = useState('John Doe');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [posts, setPosts] = useState([]);
   const [streaks, setStreaks] = useState({});
 
@@ -28,8 +29,13 @@ function ProfileScreen({ navigation }) {
         setUsername(userData.username);
         setName(userData.name);
         setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-        setPosts(userData.posts || []);
-        setStreaks(userData.streaks || { group1: 5, group2: 3, group3: 7 });
+        setStreaks(userData.streaks || {});
+        
+        // Fetch user's posts
+        const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', auth.currentUser.uid));
+        const postsSnap = await getDocs(postsQuery);
+        const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPosts(postsData);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch user data');
@@ -37,11 +43,11 @@ function ProfileScreen({ navigation }) {
   };
 
   const handleUpdateProfile = async () => {
-    if (!username.trim()) return;
     const userRef = doc(db, 'users', auth.currentUser.uid);
     try {
       await updateDoc(userRef, { username });
       Alert.alert('Profile updated successfully!');
+      setIsEditingUsername(false);
     } catch (error) {
       Alert.alert('Failed to update profile: ' + error.message);
     }
@@ -93,13 +99,24 @@ function ProfileScreen({ navigation }) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
-        <View style={styles.headerInfo}>
-          <Text style={styles.name}>{name}</Text>
-          <TouchableOpacity style={styles.changePictureButton} onPress={pickImage}>
-            <Text style={styles.changePictureButtonText}>Change Picture</Text>
+        <TouchableOpacity onPress={pickImage}>
+          <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
+          <Icon name="edit" size={24} color="white" style={styles.editIcon} />
+        </TouchableOpacity>
+        {isEditingUsername ? (
+          <TextInput
+            style={styles.input}
+            placeholder="Update username"
+            placeholderTextColor="#ccc"
+            value={username}
+            onChangeText={setUsername}
+            onBlur={handleUpdateProfile}
+          />
+        ) : (
+          <TouchableOpacity onPress={() => setIsEditingUsername(true)}>
+            <Text style={styles.name}>{username} <Icon name="edit" size={16} color="white" /></Text>
           </TouchableOpacity>
-        </View>
+        )}
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
@@ -109,7 +126,7 @@ function ProfileScreen({ navigation }) {
         <Text style={styles.streaksTitle}>Streaks</Text>
         {Object.entries(streaks).map(([group, streak]) => (
           <View key={group} style={styles.streak}>
-            <Icon name="fire" size={20} color="#ff4500" />
+            <Icon name="bolt" size={20} color="orange" />
             <Text style={styles.streakText}>{group}: {streak} days</Text>
           </View>
         ))}
@@ -122,20 +139,8 @@ function ProfileScreen({ navigation }) {
           </View>
         ))}
       </View>
-      <View style={styles.usernameSection}>
-        <Text style={styles.label}>Username:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Update username"
-          placeholderTextColor="#ccc"
-          value={username}
-          onChangeText={setUsername}
-        />
-        <TouchableOpacity style={styles.updateButton} onPress={handleUpdateProfile}>
-          <Text style={styles.updateButtonText}>Update Profile</Text>
-        </TouchableOpacity>
-      </View>
       <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+        <Icon name="cog" size={24} color="white" />
         <Text style={styles.settingsButtonText}>Settings</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -160,22 +165,22 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginRight: 20,
   },
-  headerInfo: {
-    flex: 1,
+  editIcon: {
+    position: 'absolute',
+    top: 70,
+    right: 10,
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 10,
   },
-  changePictureButton: {
-    backgroundColor: '#444',
+  input: {
+    backgroundColor: '#191919',
+    color: 'white',
     padding: 10,
     borderRadius: 5,
-  },
-  changePictureButtonText: {
-    color: 'white',
+    marginBottom: 10,
   },
   stats: {
     flexDirection: 'row',
@@ -223,41 +228,19 @@ const styles = StyleSheet.create({
   postText: {
     color: 'white',
   },
-  usernameSection: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    color: 'white',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#191919',
-    color: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  updateButton: {
-    backgroundColor: '#1E90FF',
-    padding: 10,
-    borderRadius: 5,
-  },
-  updateButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
   settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#1E90FF',
     padding: 10,
     borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
+    alignSelf: 'center',
+    marginTop: 20,
   },
   settingsButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    marginLeft: 5,
   },
 });
 

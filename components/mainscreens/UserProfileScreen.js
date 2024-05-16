@@ -1,38 +1,83 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { db } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import { db, auth } from '../../firebaseConfig';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params;
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [isFriend, setIsFriend] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const docRef = doc(db, 'users', userId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          setUser(userData);
-          
-          // Fetch user's posts
-          const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', userId));
-          const postsSnap = await getDocs(postsQuery);
-          const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setPosts(postsData);
-        } else {
-          console.log("No such user!");
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
-    fetchUser();
+    if (userId === auth.currentUser.uid) {
+      navigation.navigate('Profile');
+    } else {
+      fetchUser();
+      checkFriendStatus();
+    }
   }, [userId]);
+
+  const fetchUser = async () => {
+    try {
+      const docRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setUser(userData);
+        
+        // Fetch user's posts
+        const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', userId));
+        const postsSnap = await getDocs(postsQuery);
+        const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPosts(postsData);
+      } else {
+        console.log("No such user!");
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
+  const checkFriendStatus = async () => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const currentUserSnap = await getDoc(currentUserRef);
+      if (currentUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        setIsFriend(currentUserData.friends && currentUserData.friends.includes(userId));
+      }
+    } catch (error) {
+      console.error("Error checking friend status:", error);
+    }
+  };
+
+  const addFriend = async () => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(currentUserRef, {
+        friends: arrayUnion(userId)
+      });
+      setIsFriend(true);
+      Alert.alert('Friend added successfully!');
+    } catch (error) {
+      Alert.alert('Failed to add friend: ' + error.message);
+    }
+  };
+
+  const removeFriend = async () => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(currentUserRef, {
+        friends: arrayRemove(userId)
+      });
+      setIsFriend(false);
+      Alert.alert('Friend removed successfully!');
+    } catch (error) {
+      Alert.alert('Failed to remove friend: ' + error.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -57,6 +102,17 @@ function UserProfileScreen({ route, navigation }) {
             )}
             ListHeaderComponent={() => <Text style={styles.postsTitle}>Posts</Text>}
           />
+          {isFriend ? (
+            <TouchableOpacity style={styles.friendButton} onPress={removeFriend}>
+              <Icon name="user-times" size={24} color="white" />
+              <Text style={styles.friendButtonText}>Remove Friend</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.friendButton} onPress={addFriend}>
+              <Icon name="user-plus" size={24} color="white" />
+              <Text style={styles.friendButtonText}>Add Friend</Text>
+            </TouchableOpacity>
+          )}
         </>
       ) : (
         <Text style={styles.loadingText}>Loading...</Text>
@@ -127,15 +183,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
-  settingsButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
+  friendButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1E90FF',
     padding: 10,
     borderRadius: 5,
+    alignSelf: 'center',
+    marginTop: 20,
+  },
+  friendButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E90FF',
+    padding: 10,
+    borderRadius: 5,
+    alignSelf: 'center',
+    marginTop: 20,
   },
   settingsButtonText: {
     color: 'white',

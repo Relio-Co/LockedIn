@@ -23,7 +23,8 @@ function CreateGroupScreen() {
         description: groupDesc,
         public: isPublic,
         admins: [auth.currentUser.uid],
-        members: [auth.currentUser.uid]
+        members: [auth.currentUser.uid],
+        streak: 0
       };
 
       const docRef = await addDoc(collection(db, "groups"), newGroup);

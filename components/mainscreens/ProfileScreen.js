@@ -59,24 +59,24 @@ function ProfileScreen({ navigation }) {
       Alert.alert("You've refused to allow this app to access your photos!");
       return;
     }
-
+  
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-
+  
     if (pickerResult.cancelled) {
       return;
     }
-
+  
     const manipResult = await manipulateAsync(
-      pickerResult.uri,
+      pickerResult.assets[0].uri,
       [{ resize: { width: 200, height: 200 } }],
       { compress: 0.1, format: SaveFormat.JPEG }
     );
-
+  
     const uploadUrl = await uploadImage(manipResult.uri);
     setProfilePicture(uploadUrl);
     updateProfilePicture(uploadUrl);

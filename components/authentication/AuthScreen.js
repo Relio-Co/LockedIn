@@ -19,10 +19,8 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { pick } from "lodash";
 
 function AuthScreen() {
   const [email, setEmail] = useState("");
@@ -50,38 +48,79 @@ function AuthScreen() {
   };
 
   const pickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!permissionResult.granted) {
-      alert("You've refused to allow this app to access your photos!");
+    if (!permissionResult.granted || !cameraPermissionResult.granted) {
+      Alert.alert("Permission required", "You need to allow access to your photos and camera to upload an image.");
       return;
     }
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    Alert.alert(
+      "Select Image",
+      "Choose an option",
+      [
+        {
+          text: "Camera Roll",
+          onPress: async () => {
+            let pickerResult = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            });
 
-    if (pickerResult.cancelled) {
-      console.log("Picker was cancelled.");
-      return;
-    }
+            if (pickerResult.cancelled) {
+              console.log("Picker was cancelled.");
+              return;
+            }
 
-    const manipResult = await manipulateAsync(
-      pickerResult.assets[0].uri,
-      [{ resize: { width: 200, height: 200 } }],
-      { compress: 0.1, format: SaveFormat.JPEG }
+            const manipResult = await manipulateAsync(
+              pickerResult.assets[0].uri,
+              [{ resize: { width: 200, height: 200 } }],
+              { compress: 0.1, format: SaveFormat.JPEG }
+            );
+            console.log("n", manipResult.uri);
+            if (manipResult.uri) {
+              const uploadUrl = await uploadImage(manipResult.uri);
+              setProfilePicture(uploadUrl);
+            } else {
+              alert("Failed to process image.");
+            }
+          }
+        },
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            let pickerResult = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            });
+
+            if (pickerResult.cancelled) {
+              console.log("Picker was cancelled.");
+              return;
+            }
+
+            const manipResult = await manipulateAsync(
+              pickerResult.assets[0].uri,
+              [{ resize: { width: 200, height: 200 } }],
+              { compress: 0.1, format: SaveFormat.JPEG }
+            );
+            console.log("n", manipResult.uri);
+            if (manipResult.uri) {
+              const uploadUrl = await uploadImage(manipResult.uri);
+              setProfilePicture(uploadUrl);
+            } else {
+              alert("Failed to process image.");
+            }
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ],
+      { cancelable: true }
     );
-    console.log("n", manipResult.uri);
-    if (manipResult.uri) {
-      const uploadUrl = await uploadImage(manipResult.uri);
-      setProfilePicture(uploadUrl);
-    } else {
-      alert("Failed to process image.");
-    }
   };
 
   const uploadImage = async (uri) => {
@@ -229,21 +268,19 @@ function AuthScreen() {
           </Animated.View>
         </>
       ) : (
-        
-          <TouchableOpacity
-            onPress={() => {
-              handleLogin();
-              fadeIn();
-            }}
-            activeOpacity={0.7}
-            onPressIn={fadeOut}
-            onPressOut={fadeIn}
-          >
-            <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
+        <TouchableOpacity
+          onPress={() => {
+            handleLogin();
+            fadeIn();
+          }}
+          activeOpacity={0.7}
+          onPressIn={fadeOut}
+          onPressOut={fadeIn}
+        >
+          <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
             <Text style={styles.buttonText}>Login</Text>
-            </Animated.View>
-          </TouchableOpacity>
-        
+          </Animated.View>
+        </TouchableOpacity>
       )}
       <TouchableOpacity
         onPress={() => setIsNewUser(!isNewUser)}

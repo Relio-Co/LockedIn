@@ -36,25 +36,58 @@ function PostScreen({ route }) {
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("Permission required", "You need to allow access to your photos to upload an image.");
+    const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
+  
+    if (!permissionResult.granted || !cameraPermissionResult.granted) {
+      Alert.alert("Permission required", "You need to allow access to your photos and camera to upload an image.");
       return;
     }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (result.cancelled) {
-      setImage(null);
-      return;
-    }
-
-    const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
-    setImage(manipResult.uri);
+  
+    Alert.alert(
+      "Select Image",
+      "Choose an option",
+      [
+        {
+          text: "Camera Roll",
+          onPress: async () => {
+            let result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 1,
+            });
+  
+            if (result.cancelled) {
+              setImage(null);
+              return;
+            }
+  
+            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+            setImage(manipResult.uri);
+          }
+        },
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            let result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 1,
+            });
+  
+            if (result.cancelled) {
+              setImage(null);
+              return;
+            }
+  
+            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+            setImage(manipResult.uri);
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleUpload = async () => {

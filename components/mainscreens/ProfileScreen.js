@@ -84,31 +84,74 @@ function ProfileScreen({ navigation }) {
   const pickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("You've refused to allow this app to access your photos!");
+    const cameraPermissionResult =
+      await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permissionResult.granted || !cameraPermissionResult.granted) {
+      Alert.alert(
+        "Permission required",
+        "You need to allow access to your photos and camera to upload an image."
+      );
       return;
     }
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    Alert.alert(
+      "Select Image",
+      "Choose an option",
+      [
+        {
+          text: "Camera Roll",
+          onPress: async () => {
+            let pickerResult = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            });
 
-    if (pickerResult.cancelled) {
-      return;
-    }
+            if (pickerResult.cancelled) {
+              return;
+            }
 
-    const manipResult = await manipulateAsync(
-      pickerResult.uri,
-      [{ resize: { width: 200, height: 200 } }],
-      { compress: 0.1, format: SaveFormat.JPEG }
+            const manipResult = await manipulateAsync(
+              pickerResult.assets[0].uri,
+              [{ resize: { width: 200, height: 200 } }],
+              { compress: 0.1, format: SaveFormat.JPEG }
+            );
+
+            const uploadUrl = await uploadImage(manipResult.uri);
+            setProfilePicture(uploadUrl);
+            updateProfilePicture(uploadUrl);
+          },
+        },
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            let pickerResult = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            });
+
+            if (pickerResult.cancelled) {
+              return;
+            }
+
+            const manipResult = await manipulateAsync(
+              pickerResult.assets[0].uri,
+              [{ resize: { width: 200, height: 200 } }],
+              { compress: 0.1, format: SaveFormat.JPEG }
+            );
+
+            const uploadUrl = await uploadImage(manipResult.uri);
+            setProfilePicture(uploadUrl);
+            updateProfilePicture(uploadUrl);
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true }
     );
-
-    const uploadUrl = await uploadImage(manipResult.uri);
-    setProfilePicture(uploadUrl);
-    updateProfilePicture(uploadUrl);
   };
 
   const uploadImage = async (uri) => {

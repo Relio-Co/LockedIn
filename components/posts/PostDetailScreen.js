@@ -18,47 +18,51 @@ function PostDetailScreen({ route }) {
 
   useEffect(() => {
     async function fetchPostAndComments() {
-      const postRef = doc(db, 'posts', postId);
-      const postSnap = await getDoc(postRef);
+      try {
+        const postRef = doc(db, 'posts', postId);
+        const postSnap = await getDoc(postRef);
 
-      if (postSnap.exists()) {
-        const postData = {
-          id: postSnap.id,
-          ...postSnap.data(),
-          createdAt: postSnap.data().createdAt.toDate()
-        };
+        if (postSnap.exists()) {
+          const postData = {
+            id: postSnap.id,
+            ...postSnap.data(),
+            createdAt: postSnap.data().createdAt.toDate()
+          };
 
-        const userRef = doc(db, 'users', postData.createdBy);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          postData.username = userSnap.data().username;
-          postData.streakScore = userSnap.data().streakScore;
+          const userRef = doc(db, 'users', postData.createdBy);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            postData.username = userSnap.data().username;
+            postData.streakScore = userSnap.data().streakScore;
+          }
+
+          setPost(postData);
+
+          const commentsQuery = query(collection(db, `posts/${postId}/comments`));
+          const commentsSnapshot = await getDocs(commentsQuery);
+          const commentsData = await Promise.all(
+            commentsSnapshot.docs.map(async (commentDoc) => {
+              const commentData = {
+                id: commentDoc.id,
+                ...commentDoc.data(),
+                createdAt: commentDoc.data().createdAt.toDate()
+              };
+
+              const commentUserRef = doc(db, 'users', commentData.userId);
+              const commentUserSnap = await getDoc(commentUserRef);
+              if (commentUserSnap.exists()) {
+                commentData.username = commentUserSnap.data().username;
+              }
+              return commentData;
+            })
+          );
+
+          setComments(commentsData);
+        } else {
+          console.log("No such document!");
         }
-
-        setPost(postData);
-
-        const commentsQuery = query(collection(db, `posts/${postId}/comments`));
-        const commentsSnapshot = await getDocs(commentsQuery);
-        const commentsData = await Promise.all(
-          commentsSnapshot.docs.map(async (doc) => {
-            const commentData = {
-              id: doc.id,
-              ...doc.data(),
-              createdAt: doc.data().createdAt.toDate()
-            };
-
-            const userRef = doc(db, 'users', commentData.userId);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-              commentData.username = userSnap.data().username;
-            }
-            return commentData;
-          })
-        );
-
-        setComments(commentsData);
-      } else {
-        console.log("No such document!");
+      } catch (error) {
+        console.error("Error fetching post and comments:", error);
       }
     }
 
@@ -78,15 +82,19 @@ function PostDetailScreen({ route }) {
       likes: []
     };
 
-    const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      commentData.username = userSnap.data().username;
-      commentData.id = newCommentRef.id; // Use Firestore generated ID for the comment
-      setComments([...comments, commentData]);
+    try {
+      const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        commentData.username = userSnap.data().username;
+        commentData.id = newCommentRef.id; // Use Firestore generated ID for the comment
+        setComments([...comments, commentData]);
+      }
+      setNewComment('');
+    } catch (error) {
+      console.error("Error adding comment:", error);
     }
-    setNewComment('');
   };
 
   const handleDeletePost = async () => {
@@ -103,27 +111,22 @@ function PostDetailScreen({ route }) {
           style: "destructive",
           onPress: async () => {
             try {
-              // Remove the post document
               const postRef = doc(db, 'posts', postId);
               await deleteDoc(postRef);
 
-              // Remove the post from the group's set of posts
               const groupRef = doc(db, 'groups', post.groupId);
               await updateDoc(groupRef, {
                 posts: arrayRemove(postId)
               });
 
-              // Remove the post from the user's set of posts (if applicable)
               const userRef = doc(db, 'users', post.createdBy);
               await updateDoc(userRef, {
                 posts: arrayRemove(postId)
               });
 
-              // Delete the image from Firebase Storage
               const imageRef = ref(storage, post.imageUrl);
               await deleteObject(imageRef);
 
-              // Navigate back to the previous screen
               navigation.goBack();
             } catch (error) {
               console.error("Error deleting post:", error);
@@ -155,11 +158,11 @@ function PostDetailScreen({ route }) {
           )}
           <FlatList
             data={comments}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <View style={styles.commentContainer}>
                 <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.userId })}>
-                  <Text style={styles.username}>{item.username}</Text>
+                  <Text style={styles.commentUsername}>{item.username}</Text>
                 </TouchableOpacity>
                 <Text style={styles.commentText}>{item.text}</Text>
                 <Text style={styles.timestamp}>{item.createdAt.toLocaleString()}</Text>
@@ -173,10 +176,12 @@ function PostDetailScreen({ route }) {
             placeholder="Write a comment..."
             placeholderTextColor="#ccc"
           />
-          <Button title="Add Comment" onPress={handleAddComment} color="#fff" />
+          <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
+            <Text style={styles.addCommentButtonText}>Add Comment</Text>
+          </TouchableOpacity>
         </>
       ) : (
-        <Text>Loading post...</Text>
+        <Text style={styles.loadingText}>Loading post...</Text>
       )}
     </View>
   );
@@ -194,6 +199,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     marginBottom: 10,
+    borderRadius: 10,
   },
   caption: {
     fontWeight: 'bold',
@@ -205,7 +211,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ccc', // Subtle contrast
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: 10,
   },
   commentContainer: {
     padding: 10,
@@ -213,9 +219,15 @@ const styles = StyleSheet.create({
     borderColor: '#282828', // Slightly lighter border for contrast
     marginBottom: 5,
   },
+  commentUsername: {
+    fontWeight: 'bold',
+    color: '#1e90ff', // Blue color for usernames
+    fontSize: 14,
+  },
   commentText: {
     color: 'white', // White text for comments
     fontSize: 14,
+    marginBottom: 5,
   },
   timestamp: {
     fontSize: 12,
@@ -229,7 +241,21 @@ const styles = StyleSheet.create({
     color: 'white', // White text for input
     backgroundColor: '#191919', // Darker black for input background
     borderRadius: 5,
-  }
+  },
+  addCommentButton: {
+    backgroundColor: '#1e90ff', // Blue button
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  addCommentButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 18,
+  },
 });
 
 export default PostDetailScreen;

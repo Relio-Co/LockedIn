@@ -21,7 +21,7 @@ RUN npm install
 COPY . .
 
 
-ENV EXPO_PACKAGER_PROXY_URL=https://expo.saipriya.org
+ENV EXPO_PACKAGER_PROXY_URL=https://app.golockedin.com
 # Expo CLI port
 EXPOSE 8081
 

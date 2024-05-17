@@ -1,0 +1,990 @@
+          },
+          "groupName": "lockedindevteam",
+          "createdByUsername": "smirk",
+          "createdBy": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715926822656?alt=media&token=d0e45db8-db79-4353-bf5e-9cfaddcd8d4d",
+          "groupId": "adtMchADE35tXN5543ke",
+          "caption": "",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "JQODogfkM8WkA4oBY5t7": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715739475,
+            "_nanoseconds": 376000000
+          },
+          "groupName": "No Group",
+          "createdByUsername": "alanka",
+          "createdBy": "gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715739474848?alt=media&token=8333544e-fcf8-4156-b8a7-b6c13716efdd",
+          "groupId": null,
+          "caption": "did todays wordl\n\n",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "M84oxWnxHeL1Jqo10wzH": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715889415,
+            "_nanoseconds": 476000000
+          },
+          "groupName": "Manav Group",
+          "createdByUsername": "SamEyerman",
+          "createdBy": "GL78QyG5hrP6QZWdKySWmnOw8kH3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715889414551?alt=media&token=1ae9fe09-bb11-445f-85ab-4f72fe12ae70",
+          "groupId": "awulQkP28f6tCMIEDN5r",
+          "caption": "Tower",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "NyDUWDiHNOCGrtrZzyI6": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715717803,
+            "_nanoseconds": 183000000
+          },
+          "groupName": "No Group",
+          "createdByUsername": "smirk",
+          "createdBy": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715717802630?alt=media&token=69670a64-34a0-48a5-81aa-2b19fe4d27d4",
+          "groupId": null,
+          "caption": "fire\n\n",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "PHUEfJvnjRE4fKsH9X8Q": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715556364,
+            "_nanoseconds": 826000000
+          },
+          "groupName": "No Group",
+          "createdByUsername": "smirk",
+          "createdBy": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715556363960?alt=media&token=24004fd5-d2ee-4506-a0b2-789a65e5c527",
+          "groupId": null,
+          "caption": "",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "PKSVPq7xqR08UzKV21AY": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715726645,
+            "_nanoseconds": 124000000
+          },
+          "groupName": "10pushupsaday",
+          "createdByUsername": "smirk",
+          "createdBy": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715726644490?alt=media&token=805028c2-f454-488d-b696-8db048d30aa3",
+          "groupId": "adtMchADE35tXN5543ke",
+          "caption": "BofA corporate center",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "b1fT9NRx30zctlTYJLJh": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715787480,
+            "_nanoseconds": 903000000
+          },
+          "groupName": "lockedindevteam",
+          "createdByUsername": "smirk",
+          "createdBy": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715787480392?alt=media&token=e87284f2-0832-4262-ac0f-584778176bf8",
+          "groupId": "adtMchADE35tXN5543ke",
+          "caption": "workws on it today\n",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "kmjYt6rokQKdbiK1VVMY": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715724378,
+            "_nanoseconds": 529000000
+          },
+          "groupName": "No Group",
+          "createdByUsername": "",
+          "createdBy": "Ce1jOCxMUlbbfCIGbN8m9QAtZCB2",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715724377727?alt=media&token=2fe2a7e0-b7d0-4149-ab69-2192a6791a42",
+          "groupId": null,
+          "caption": "",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "mhHljwMCTEQRbHFZpXkc": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715792931,
+            "_nanoseconds": 365000000
+          },
+          "groupName": " nn",
+          "createdByUsername": "alanka",
+          "createdBy": "gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715792930237?alt=media&token=157e7380-6389-40a6-97d6-aeb1ded12488",
+          "groupId": "weP0b4NYh06w9AuVFPin",
+          "caption": "chest and tris\n",
+          "isPublic": true
+        },
+        "subcollections": {}
+      },
+      "qQ9S2TKZYhS3T0ybCWkg": {
+        "fields": {
+          "createdAt": {
+            "_seconds": 1715919517,
+            "_nanoseconds": 585000000
+          },
+          "groupName": " nn",
+          "createdByUsername": "alanka",
+          "createdBy": "gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/posts%2F1715919517037?alt=media&token=6b393334-c8c1-4ba6-acf8-e138bd2b6773",
+          "groupId": "JGyRESfPKQYVbjXW99y0",
+          "caption": "coding\n",
+          "isPublic": true
+        },
+        "subcollections": {}
+      }
+    },
+    "users": {
+      "0VVLmehJXrPSfHwOpYRK3ceJEEx1": {
+        "fields": {
+          "uid": "0VVLmehJXrPSfHwOpYRK3ceJEEx1",
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2Fgtj0OYHP3zLFvU96jZJPSMRqWUC3?alt=media&token=2ae14e4c-e62a-4cb0-bc4e-76d322f2aa74",
+          "streakScore": 0,
+          "email": "test@gmail.com",
+          "username": "user"
+        },
+        "subcollections": {}
+      },
+      "0g1xiPjNMPMtPWn3shz5CIH1Vpm1": {
+        "fields": {
+          "uid": "0g1xiPjNMPMtPWn3shz5CIH1Vpm1",
+          "profilePicture": "",
+          "streakScore": 0,
+          "email": "d@gmail.com",
+          "groups": [
+            "adtMchADE35tXN5543ke"
+          ],
+          "username": "i am d",
+          "friends": [],
+          "friendRequests": [
+            {
+              "from": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+              "username": "smirk",
+              "timestamp": "2024-05-15T16:08:06.641Z"
+            }
+          ]
+        },
+        "subcollections": {}
+      },
+      "Ce1jOCxMUlbbfCIGbN8m9QAtZCB2": {
+        "fields": {
+          "uid": "Ce1jOCxMUlbbfCIGbN8m9QAtZCB2",
+          "streakScore": 0,
+          "email": "maanavj06@gmail.com",
+          "username": "",
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2FCe1jOCxMUlbbfCIGbN8m9QAtZCB2?alt=media&token=f0bad056-418b-4be2-89cb-4da0f56c7a40",
+          "groups": [
+            "adtMchADE35tXN5543ke"
+          ]
+        },
+        "subcollections": {}
+      },
+      "GL78QyG5hrP6QZWdKySWmnOw8kH3": {
+        "fields": {
+          "uid": "GL78QyG5hrP6QZWdKySWmnOw8kH3",
+          "profilePicture": null,
+          "streakScore": 0,
+          "email": "sameyerman3@gmail.com",
+          "username": "SamEyerman",
+          "groups": [
+            "awulQkP28f6tCMIEDN5r"
+          ]
+        },
+        "subcollections": {}
+      },
+      "S2zp6LbpjHaXOoYSZmzC2PHiOQC3": {
+        "fields": {
+          "streakScore": 0,
+          "uid": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+          "username": "smirk",
+          "emailNotifications": false,
+          "helpAndFAQs": "",
+          "uploadQuality": "",
+          "dateFormat": "",
+          "privacyPolicy": "",
+          "privateAccount": true,
+          "termsOfService": "",
+          "units": "",
+          "groupNotifications": true,
+          "password": "",
+          "defaultGroup": "",
+          "uploadFormat": "",
+          "pushNotifications": false,
+          "firstDayOfWeek": "",
+          "blockedUsers": [],
+          "email": "",
+          "sentRequests": [
+            {
+              "id": "0g1xiPjNMPMtPWn3shz5CIH1Vpm1",
+              "username": "i am d",
+              "timestamp": "2024-05-15T16:08:06.471Z"
+            }
+          ],
+          "groupsInvitedTo": [],
+          "posts": [],
+          "groups": [
+            "adtMchADE35tXN5543ke",
+            "awulQkP28f6tCMIEDN5r"
+          ],
+          "name": "smirk",
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2FS2zp6LbpjHaXOoYSZmzC2PHiOQC3?alt=media&token=7fccaa44-3cb8-4f2c-92e2-bf7a2d2deffc",
+          "friendRequests": [],
+          "friends": [
+            "sL8XrMAsyUWS2EekqtwQLrGai9W2"
+          ]
+        },
+        "subcollections": {}
+      },
+      "fAlwnhphDqVx8Q3tN1AC7P00kGY2": {
+        "fields": {
+          "uid": "fAlwnhphDqVx8Q3tN1AC7P00kGY2",
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2F0VVLmehJXrPSfHwOpYRK3ceJEEx1?alt=media&token=2ca388ab-c9ed-4315-9fd1-69b4295a792b",
+          "streakScore": 0,
+          "email": "8@gmail.com",
+          "username": "p"
+        },
+        "subcollections": {}
+      },
+      "gtj0OYHP3zLFvU96jZJPSMRqWUC3": {
+        "fields": {
+          "uid": "gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+          "streakScore": 0,
+          "email": "ayushlanka106@gmail.com",
+          "username": "alanka",
+          "friendRequests": [],
+          "groups": [
+            "adtMchADE35tXN5543ke",
+            "weP0b4NYh06w9AuVFPin",
+            "JGyRESfPKQYVbjXW99y0"
+          ],
+          "groupsInvitedTo": [
+            "adtMchADE35tXN5543ke"
+          ],
+          "friends": [],
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2Fgtj0OYHP3zLFvU96jZJPSMRqWUC3?alt=media&token=1b45caca-dc2b-48a4-be20-d5766c448947"
+        },
+        "subcollections": {}
+      },
+      "hr6P8uO7twTfdUgoujwd0nEQorY2": {
+        "fields": {
+          "uid": "hr6P8uO7twTfdUgoujwd0nEQorY2",
+          "profilePicture": "https://firebasestorage.googleapis.com/v0/b/lockedin-88dd7.appspot.com/o/profilePics%2Fgtj0OYHP3zLFvU96jZJPSMRqWUC3?alt=media&token=5a67f313-65ae-4e76-8a3f-dba07bb38155",
+          "streakScore": 0,
+          "email": "p@gmail.com",
+          "username": "my username"
+        },
+        "subcollections": {}
+      },
+      "sL8XrMAsyUWS2EekqtwQLrGai9W2": {
+        "fields": {
+          "uid": "sL8XrMAsyUWS2EekqtwQLrGai9W2",
+          "profilePicture": null,
+          "streakScore": 0,
+          "email": "spsep16@gmail.com",
+          "username": "skotchar",
+          "groups": [
+            "awulQkP28f6tCMIEDN5r"
+          ],
+          "sentRequests": [
+            {
+              "id": "S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+              "username": "smirk",
+              "timestamp": "2024-05-17T01:45:33.112Z"
+            }
+          ],
+          "friends": [
+            "S2zp6LbpjHaXOoYSZmzC2PHiOQC3"
+          ]
+        },
+        "subcollections": {}
+      }
+    }
+  },
+  "realtimeDatabase": {
+    "null": {
+      "groupChats": {
+        "undefined": {
+          "messages": {
+            "-Ny24QSgzLraF74KGA7A": {
+              "user": {
+                "name": "alanka"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "storage": [
+    {
+      "name": "posts/1715526982798",
+      "contentType": "image/jpeg",
+      "size": "20025"
+    },
+    {
+      "name": "posts/1715556363960",
+      "contentType": "image/jpeg",
+      "size": "38420"
+    },
+    {
+      "name": "posts/1715717802630",
+      "contentType": "image/jpeg",
+      "size": "21859"
+    },
+    {
+      "name": "posts/1715724377727",
+      "contentType": "image/jpeg",
+      "size": "15785"
+    },
+    {
+      "name": "posts/1715726644490",
+      "contentType": "image/jpeg",
+      "size": "28020"
+    },
+    {
+      "name": "posts/1715739474848",
+      "contentType": "image/jpeg",
+      "size": "24985"
+    },
+    {
+      "name": "posts/1715787480392",
+      "contentType": "image/jpeg",
+      "size": "30538"
+    },
+    {
+      "name": "posts/1715792524513",
+      "contentType": "image/jpeg",
+      "size": "13489"
+    },
+    {
+      "name": "posts/1715792930237",
+      "contentType": "image/jpeg",
+      "size": "31754"
+    },
+    {
+      "name": "posts/1715889414551",
+      "contentType": "image/jpeg",
+      "size": "24414"
+    },
+    {
+      "name": "posts/1715910206419",
+      "contentType": "image/jpeg",
+      "size": "15111"
+    },
+    {
+      "name": "posts/1715919517037",
+      "contentType": "image/jpeg",
+      "size": "12088"
+    },
+    {
+      "name": "posts/1715926822656",
+      "contentType": "image/jpeg",
+      "size": "25099"
+    },
+    {
+      "name": "posts/1715926838009",
+      "contentType": "image/jpeg",
+      "size": "12070"
+    },
+    {
+      "name": "profilePics/0VVLmehJXrPSfHwOpYRK3ceJEEx1",
+      "contentType": "image/jpeg",
+      "size": "2497"
+    },
+    {
+      "name": "profilePics/Ce1jOCxMUlbbfCIGbN8m9QAtZCB2",
+      "contentType": "image/jpeg",
+      "size": "3071"
+    },
+    {
+      "name": "profilePics/S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+      "contentType": "image/jpeg",
+      "size": "4398"
+    },
+    {
+      "name": "profilePics/WL9xyaF62HWHsl9FvoIv4QHNBrO2",
+      "contentType": "image/jpeg",
+      "size": "3063"
+    },
+    {
+      "name": "profilePics/gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+      "contentType": "image/jpeg",
+      "size": "4387"
+    }
+  ]
+}
+PS C:\Users\Smirk\Documents\Programming\LockedIn\utils\firebasecrawler> node crawler.js
+{
+  "firestore": {
+    "groups": {
+      "JGyRESfPKQYVbjXW99y0": {
+        "fields": [
+          "public",
+          "name",
+          "description",
+          "admins",
+          "members",
+          "posts"
+        ],
+        "subcollections": {}
+      },
+      "adtMchADE35tXN5543ke": {
+        "fields": [
+          "admins",
+          "public",
+          "name",
+          "description",
+          "members",
+          "posts"
+        ],
+        "subcollections": {
+          "posts": {
+            "l7KxLhchzLryiNQIJJAb": {
+              "fields": [
+                "createdAt",
+                "createdBy",
+                "imageUrl",
+                "groupId",
+                "caption"
+              ],
+              "subcollections": {}
+            }
+          }
+        }
+      },
+      "awulQkP28f6tCMIEDN5r": {
+        "fields": [
+          "public",
+          "streak",
+          "admins",
+          "name",
+          "description",
+          "members",
+          "posts"
+        ],
+        "subcollections": {}
+      },
+      "weP0b4NYh06w9AuVFPin": {
+        "fields": [
+          "public",
+          "name",
+          "description",
+          "admins",
+          "posts",
+          "members"
+        ],
+        "subcollections": {}
+      }
+    },
+    "posts": {
+      "497OAWols9eTXurAFZul": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "83khHyntZfo00G0Fuaf1": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "CG7Ucg4gZz0d1yKlg8nP": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "IMD7puAAav67E06nCWX5": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "JQODogfkM8WkA4oBY5t7": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "M84oxWnxHeL1Jqo10wzH": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "NyDUWDiHNOCGrtrZzyI6": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "PHUEfJvnjRE4fKsH9X8Q": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "PKSVPq7xqR08UzKV21AY": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "b1fT9NRx30zctlTYJLJh": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "kmjYt6rokQKdbiK1VVMY": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "mhHljwMCTEQRbHFZpXkc": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      },
+      "qQ9S2TKZYhS3T0ybCWkg": {
+        "fields": [
+          "createdAt",
+          "groupName",
+          "createdByUsername",
+          "createdBy",
+          "imageUrl",
+          "groupId",
+          "caption",
+          "isPublic"
+        ],
+        "subcollections": {}
+      }
+    },
+    "users": {
+      "0VVLmehJXrPSfHwOpYRK3ceJEEx1": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "username"
+        ],
+        "subcollections": {}
+      },
+      "0g1xiPjNMPMtPWn3shz5CIH1Vpm1": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "groups",
+          "username",
+          "friends",
+          "friendRequests"
+        ],
+        "subcollections": {}
+      },
+      "Ce1jOCxMUlbbfCIGbN8m9QAtZCB2": {
+        "fields": [
+          "uid",
+          "streakScore",
+          "email",
+          "username",
+          "profilePicture",
+          "groups"
+        ],
+        "subcollections": {}
+      },
+      "GL78QyG5hrP6QZWdKySWmnOw8kH3": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "username",
+          "groups"
+        ],
+        "subcollections": {}
+      },
+      "S2zp6LbpjHaXOoYSZmzC2PHiOQC3": {
+        "fields": [
+          "streakScore",
+          "uid",
+          "username",
+          "emailNotifications",
+          "helpAndFAQs",
+          "uploadQuality",
+          "dateFormat",
+          "privacyPolicy",
+          "privateAccount",
+          "termsOfService",
+          "units",
+          "groupNotifications",
+          "password",
+          "defaultGroup",
+          "uploadFormat",
+          "pushNotifications",
+          "firstDayOfWeek",
+          "blockedUsers",
+          "email",
+          "sentRequests",
+          "groupsInvitedTo",
+          "posts",
+          "groups",
+          "name",
+          "profilePicture",
+          "friendRequests",
+          "friends"
+        ],
+        "subcollections": {}
+      },
+      "fAlwnhphDqVx8Q3tN1AC7P00kGY2": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "username"
+        ],
+        "subcollections": {}
+      },
+      "gtj0OYHP3zLFvU96jZJPSMRqWUC3": {
+        "fields": [
+          "uid",
+          "streakScore",
+          "email",
+          "username",
+          "friendRequests",
+          "groups",
+          "groupsInvitedTo",
+          "friends",
+          "profilePicture"
+        ],
+        "subcollections": {}
+      },
+      "hr6P8uO7twTfdUgoujwd0nEQorY2": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "username"
+        ],
+        "subcollections": {}
+      },
+      "sL8XrMAsyUWS2EekqtwQLrGai9W2": {
+        "fields": [
+          "uid",
+          "profilePicture",
+          "streakScore",
+          "email",
+          "username",
+          "groups",
+          "sentRequests",
+          "friends"
+        ],
+        "subcollections": {}
+      }
+    }
+  },
+  "realtimeDatabase": {
+    "groupChats": {
+      "adtMchADE35tXN5543ke": {
+        "messages": {
+          "-NxyOW5JXPABcwZfshRm": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          },
+          "-NxyPQqRdYGqZezKILt-": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          },
+          "-NxyPTzB3V5m8ym6cONN": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          },
+          "-NxySAxGkGYYbeNOT5Z0": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          },
+          "-NxySBTOynVNg1aZr7O3": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          },
+          "-Ny1O4MbLq4XPsAQtYVw": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          }
+        }
+      },
+      "awulQkP28f6tCMIEDN5r": {
+        "messages": {
+          "-Ny1uI91QNlVs036x-cU": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          }
+        }
+      },
+      "undefined": {
+        "messages": {
+          "-Ny24QSgzLraF74KGA7A": {
+            "_id": {},
+            "createdAt": {},
+            "text": {},
+            "user": {
+              "_id": {},
+              "avatar": {},
+              "name": {}
+            }
+          }
+        }
+      }
+    }
+  },
+  "storage": [
+    {
+      "name": "posts/1715526982798",
+      "contentType": "image/jpeg",
+      "size": "20025"
+    },
+    {
+      "name": "posts/1715556363960",
+      "contentType": "image/jpeg",
+      "size": "38420"
+    },
+    {
+      "name": "posts/1715717802630",
+      "contentType": "image/jpeg",
+      "size": "21859"
+    },
+    {
+      "name": "posts/1715724377727",
+      "contentType": "image/jpeg",
+      "size": "15785"
+    },
+    {
+      "name": "posts/1715726644490",
+      "contentType": "image/jpeg",
+      "size": "28020"
+    },
+    {
+      "name": "posts/1715739474848",
+      "contentType": "image/jpeg",
+      "size": "24985"
+    },
+    {
+      "name": "posts/1715787480392",
+      "contentType": "image/jpeg",
+      "size": "30538"
+    },
+    {
+      "name": "posts/1715792524513",
+      "contentType": "image/jpeg",
+      "size": "13489"
+    },
+    {
+      "name": "posts/1715792930237",
+      "contentType": "image/jpeg",
+      "size": "31754"
+    },
+    {
+      "name": "posts/1715889414551",
+      "contentType": "image/jpeg",
+      "size": "24414"
+    },
+    {
+      "name": "posts/1715910206419",
+      "contentType": "image/jpeg",
+      "size": "15111"
+    },
+    {
+      "name": "posts/1715919517037",
+      "contentType": "image/jpeg",
+      "size": "12088"
+    },
+    {
+      "name": "posts/1715926822656",
+      "contentType": "image/jpeg",
+      "size": "25099"
+    },
+    {
+      "name": "posts/1715926838009",
+      "contentType": "image/jpeg",
+      "size": "12070"
+    },
+    {
+      "name": "profilePics/0VVLmehJXrPSfHwOpYRK3ceJEEx1",
+      "contentType": "image/jpeg",
+      "size": "2497"
+    },
+    {
+      "name": "profilePics/Ce1jOCxMUlbbfCIGbN8m9QAtZCB2",
+      "contentType": "image/jpeg",
+      "size": "3071"
+    },
+    {
+      "name": "profilePics/S2zp6LbpjHaXOoYSZmzC2PHiOQC3",
+      "contentType": "image/jpeg",
+      "size": "4398"
+    },
+    {
+      "name": "profilePics/WL9xyaF62HWHsl9FvoIv4QHNBrO2",
+      "contentType": "image/jpeg",
+      "size": "3063"
+    },
+    {
+      "name": "profilePics/gtj0OYHP3zLFvU96jZJPSMRqWUC3",
+      "contentType": "image/jpeg",
+      "size": "4387"
+    }
+  ]
+}

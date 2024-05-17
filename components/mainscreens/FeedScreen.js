@@ -57,7 +57,7 @@ const FeedScreen = () => {
   const [forYouPosts, setForYouPosts] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [feedType, setFeedType] = useState(0);
+  const [feedType, setFeedType] = useState(1); // Set default to "For You" view
   const [invitesCount, setInvitesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFriendsPostsLoaded, setIsFriendsPostsLoaded] = useState(false);
@@ -88,7 +88,7 @@ const FeedScreen = () => {
           userGroups.map(async (groupId) => {
             const groupRef = doc(db, "groups", groupId);
             const groupSnap = await getDoc(groupRef);
-            const groupData = groupSnap.data();
+            const groupData = groupSnap.exists() ? groupSnap.data() : null;
 
             const postIds = groupData?.posts || [];
             const postDocs = await Promise.all(
@@ -97,24 +97,27 @@ const FeedScreen = () => {
                 const postSnap = await getDoc(postRef);
                 return {
                   ...postSnap.data(),
-                  groupName: groupData.name,
+                  groupName: groupData?.name || "Unknown",
                   id: postSnap.id,
                 };
               })
             );
 
             const memberIds = groupData?.members || [];
-            const userProfilesQuery = await getDocs(
-              query(collection(db, "users"), where("__name__", "in", memberIds))
-            );
-            const userProfiles = userProfilesQuery.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
+            const userProfiles = memberIds.length
+              ? (
+                  await getDocs(
+                    query(collection(db, "users"), where("__name__", "in", memberIds))
+                  )
+                ).docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }))
+              : [];
 
             return {
               groupId,
-              name: groupData.name,
+              name: groupData?.name || "Unknown",
               posts: postDocs,
               userProfiles,
             };
@@ -131,6 +134,7 @@ const FeedScreen = () => {
         }).start();
       }
     } catch (error) {
+      console.error("Error fetching user data and posts:", error);
       Alert.alert("Error", "Failed to fetch user data and posts");
       setLoading(false);
     }
@@ -157,8 +161,8 @@ const FeedScreen = () => {
           return {
             id: postDoc.id,
             ...postData,
-            createdByUsername: userSnap.data().username,
-            groupName: groupSnap ? groupSnap.data().name : null,
+            createdByUsername: userSnap.exists() ? userSnap.data().username : "Unknown",
+            groupName: groupSnap && groupSnap.exists() ? groupSnap.data().name : "Unknown",
           };
         })
       );
@@ -171,6 +175,7 @@ const FeedScreen = () => {
         useNativeDriver: true,
       }).start();
     } catch (error) {
+      console.error("Error fetching all posts:", error);
       Alert.alert("Error", "Failed to fetch all posts");
       setLoading(false);
     }
@@ -219,42 +224,45 @@ const FeedScreen = () => {
   );
 
   const renderPostItem = ({ item }) => (
-    <View style={styles.postContainer}>
-      <View style={styles.imageHeader}>
-        <TouchableOpacity onPress={() => handleProfilePress(item.createdBy)}>
-          <Text style={[styles.nameText, styles.userName]}>
-            {item.createdByUsername}
-          </Text>
-        </TouchableOpacity>
-        {item.groupName && (
-          <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
-            <Text style={[styles.nameText, styles.groupName]}>
-              {item.groupName}
-            </Text>
-          </TouchableOpacity>
-        )}
-        {!isUserInGroup(item.groupId) && item.groupName && (
-          <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
-            <Text style={styles.suggestedButton}>Suggested</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.forYouPostContainer}>
       <TouchableOpacity onPress={() => handlePostPress(item.id, item.groupId)}>
         <Image
-          style={styles.image}
+          style={styles.forYouImage}
           source={{ uri: item.imageUrl }}
           placeholder={{ uri: blurhash }}
           contentFit="cover"
           transition={1000}
-        />
-        <Text style={styles.caption}>{item.caption}</Text>
+        >
+          <View style={styles.pillContainer}>
+            <TouchableOpacity onPress={() => handleProfilePress(item.createdBy)}>
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>{item.createdByUsername} 😊</Text>
+              </View>
+            </TouchableOpacity>
+            {item.groupName && (
+              <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>#{item.groupName}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {!isUserInGroup(item.groupId) && item.groupName && (
+              <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillTextSuggest}>Suggested</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Image>
+        <Text style={styles.forYouCaption}>{item.caption}</Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderGroupPostItem = ({ item }) => (
     <View style={styles.groupCard}>
-      <Text style={styles.groupName}>{item.name}</Text>
+      <Text style={styles.groupName}>#{item.name}</Text>
       <View style={styles.postGrid}>
         {item.userProfiles?.map((profile) => {
           const post = item.posts?.find(
@@ -326,8 +334,12 @@ const FeedScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
+              progressViewOffset={100}
+              progressBackgroundColor="#282828"
+              colors={["#1e90ff"]}
             />
           }
+          contentContainerStyle={styles.flatListContainer}
         />
       );
     }
@@ -341,8 +353,12 @@ const FeedScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
+            progressViewOffset={100}
+            progressBackgroundColor="#282828"
+            colors={["#1e90ff"]}
           />
         }
+        contentContainerStyle={styles.flatListContainer}
       />
     );
   };
@@ -367,7 +383,7 @@ const FeedScreen = () => {
       </View>
       <PagerView
         style={styles.pagerView}
-        initialPage={0}
+        initialPage={1} // Set default to "For You" view
         onPageSelected={(e) => setFeedType(e.nativeEvent.position)}
       >
         <View key="1" style={styles.page}>
@@ -453,45 +469,79 @@ const styles = StyleSheet.create({
   },
   postContainer: {
     backgroundColor: "#1c1c1e",
-    padding: 10,
     borderRadius: 10,
     marginVertical: 8,
     shadowColor: "#000",
     elevation: 5,
   },
-  imageHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  textContainer: {
     padding: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
   },
-  nameText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#ccc",
-  },
-  userName: {
-    color: "#fff",
-  },
-  groupName: {
-    color: "#1e90ff",
-  },
-  suggestedButton: {
-    backgroundColor: "yellow",
-    color: "black",
+  usernameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "black",
+    borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 5,
-    fontWeight: "bold",
   },
-  image: {
+  usernameText: {
+    fontSize: 16,
+    color: "white",
+  },
+  emoji: {
+    marginLeft: 5,
+    fontSize: 16,
+  },
+  groupNameContainer: {
+    marginTop: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "black",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  groupNameText: {
+    fontSize: 14,
+    color: "white",
+  },
+  forYouImage: {
     width: "100%",
     height: 300,
-    borderRadius: 15,
+    borderRadius: 10,
+    justifyContent: "flex-end",
   },
-  caption: {
+  forYouCaption: {
     fontSize: 16,
-    color: "#ccc",
-    padding: 10,
+    color: "white",
+    marginTop: 10,
+  },
+  pillContainer: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  pill: {
+    backgroundColor: "black",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  pillText: {
+    color: "white",
+    fontSize: 14,
+  },
+  pillTextSuggest: {
+    color: "yellow",
+    fontSize: 14,
   },
   floatingButtonsContainer: {
     position: "absolute",
@@ -560,6 +610,10 @@ const styles = StyleSheet.create({
   noProfilePicText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  flatListContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   centeredContent: {
     flex: 1,

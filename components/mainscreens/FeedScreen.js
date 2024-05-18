@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { db, auth } from "../../firebaseConfig";
@@ -24,6 +26,7 @@ import {
 import { Image } from "expo-image";
 import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 import PagerView from "react-native-pager-view";
 
 const blurhash =
@@ -62,6 +65,7 @@ const FeedScreen = () => {
   const [loading, setLoading] = useState(true);
   const [isFriendsPostsLoaded, setIsFriendsPostsLoaded] = useState(false);
   const [isForYouPostsLoaded, setIsForYouPostsLoaded] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const navigation = useNavigation();
   const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
@@ -197,20 +201,24 @@ const FeedScreen = () => {
   };
 
   const handlePostPress = (postId, groupId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("PostDetail", { postId, groupId });
   };
 
   const handleProfilePress = (userId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("UserProfile", { userId });
   };
 
   const handleGroupPress = (groupId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("GroupDetails", { groupId });
   };
 
-  const isUserInGroup = useCallback((groupId) => {
-    return userGroups.includes(groupId);
-  }, [userGroups]);
+  const isUserInGroup = useMemo(
+    () => (groupId) => userGroups.includes(groupId),
+    [userGroups]
+  );
 
   const renderNoPostsMessage = () => (
     <View style={styles.centeredContent}>
@@ -265,17 +273,17 @@ const FeedScreen = () => {
               </View>
             </View>
             <View style={styles.interactionButtons}>
-              <TouchableOpacity style={styles.interactionButton}>
+              <TouchableOpacity style={styles.interactionButton} onPress={() => Haptics.selectionAsync()}>
                 <View style={styles.frostedIconContainer}>
                   <Icon name="comment" size={20} color="#ffffff" />
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.interactionButton}>
+              <TouchableOpacity style={styles.interactionButton} onPress={() => Haptics.selectionAsync()}>
                 <View style={styles.frostedIconContainer}>
                   <Icon name="thumbs-up" size={20} color="#ffffff" />
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.interactionButton}>
+              <TouchableOpacity style={styles.interactionButton} onPress={() => Haptics.selectionAsync()}>
                 <View style={styles.frostedIconContainer}>
                   <Icon name="share" size={20} color="#ffffff" />
                 </View>
@@ -395,14 +403,14 @@ const FeedScreen = () => {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.toggleButton, feedType === 0 && styles.buttonActive]}
-          onPress={() => setFeedType(0)}
+          onPress={() => { setFeedType(0); Haptics.selectionAsync(); }}
           accessibilityLabel="Friends Feed"
         >
           <Text style={styles.toggleText}>Friends</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.toggleButton, feedType === 1 && styles.buttonActive]}
-          onPress={() => setFeedType(1)}
+          onPress={() => { setFeedType(1); Haptics.selectionAsync(); }}
           accessibilityLabel="For You Feed"
         >
           <Text style={styles.toggleText}>For You</Text>
@@ -411,7 +419,7 @@ const FeedScreen = () => {
       <PagerView
         style={styles.pagerView}
         initialPage={1} // Set default to "For You" view
-        onPageSelected={(e) => setFeedType(e.nativeEvent.position)}
+        onPageSelected={(e) => { setFeedType(e.nativeEvent.position); Haptics.selectionAsync(); }}
       >
         <View key="1" style={styles.page}>
           <Animated.View style={{ ...styles.page, opacity: fadeAnim }}>
@@ -428,28 +436,28 @@ const FeedScreen = () => {
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.navBarItem}
-          onPress={() => navigation.navigate("Groups")}
+          onPress={() => { navigation.navigate("Groups"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
           accessibilityLabel="Habit"
         >
           <Icon name="list-alt" size={26} color="#ffffff" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navBarItem}
-          onPress={() => navigation.navigate("GroupChatList")}
+          onPress={() => { navigation.navigate("GroupChatList"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
           accessibilityLabel="Chat"
         >
           <Icon name="comments" size={26} color="#ffffff" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navBarItem}
-          onPress={() => navigation.navigate("Post")}
+          onPress={() => { setTooltipVisible(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
           accessibilityLabel="Add"
         >
           <Icon name="plus-circle" size={26} color="#ffffff" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navBarItem}
-          onPress={() => navigation.navigate("NotificationsScreen")}
+          onPress={() => { navigation.navigate("NotificationsScreen"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
           accessibilityLabel="Notifications"
         >
           <Icon name="bell" size={26} color="#ffffff" />
@@ -457,12 +465,44 @@ const FeedScreen = () => {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navBarItem}
-          onPress={() => navigation.navigate("Profile")}
+          onPress={() => { navigation.navigate("Profile"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
           accessibilityLabel="Profile"
         >
           <Icon name="user" size={26} color="#ffffff" />
         </TouchableOpacity>
       </View>
+
+      <Modal
+        transparent
+        visible={tooltipVisible}
+        animationType="fade"
+        onRequestClose={() => setTooltipVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setTooltipVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.tooltip}>
+              <TouchableOpacity
+                style={styles.tooltipOption}
+                onPress={() => { navigation.navigate("FriendsScreen"); setTooltipVisible(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+              >
+                <Text style={styles.tooltipText}>Friends</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tooltipOption}
+                onPress={() => { navigation.navigate("Post"); setTooltipVisible(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+              >
+                <Text style={styles.tooltipText}>Create Post</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.tooltipOption}
+                onPress={() => { navigation.navigate("HabitsScreen"); setTooltipVisible(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+              >
+                <Text style={styles.tooltipText}>Habits</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
@@ -757,6 +797,29 @@ const styles = StyleSheet.create({
     borderRadius: 400,
     backgroundColor: "#1c1c1e",
     padding: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  tooltip: {
+    backgroundColor: "#1c1c1e",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  tooltipOption: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+    width: 200,
+    alignItems: "center",
+  },
+  tooltipText: {
+    color: "#ffffff",
+    fontSize: 16,
   },
 });
 

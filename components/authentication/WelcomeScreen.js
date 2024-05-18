@@ -16,7 +16,7 @@ const WelcomeScreen = () => {
           <Text style={[styles.title, { color: '#90e0ef', fontWeight: 'bold' }]}>and Grow!</Text>
         </View>
         <Text style={styles.subtitle}>Join the platform and transform your habits one step at a time.</Text>
-        <TouchableOpacity style={styles.arrowButton} onPress={() => navigation.navigate('CreateAccount')}>
+        <TouchableOpacity style={styles.arrowButton} onPress={() => navigation.replace('CreateAccount')}>
           <Ionicons name="chevron-forward-circle-outline" size={64} color="#00b4d8" />
         </TouchableOpacity>
       </View>

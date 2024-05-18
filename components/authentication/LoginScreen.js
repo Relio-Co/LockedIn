@@ -56,7 +56,7 @@ const LoginScreen = () => {
       if (docSnap.exists()) {
         const userProfile = docSnap.data();
         await AsyncStorage.setItem('userProfile', JSON.stringify(userProfile));
-        navigation.navigate('Feed');
+        navigation.replace('Feed');
       } else {
         console.log('No user profile found!');
       }
@@ -95,8 +95,7 @@ const LoginScreen = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.forgotPassword}>Forgot password?</Text>
-        <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
-          <TouchableOpacity
+        <TouchableOpacity
             onPress={() => {
               handleLogin();
               fadeIn();
@@ -105,10 +104,13 @@ const LoginScreen = () => {
             onPressIn={fadeOut}
             onPressOut={fadeIn}
           >
+        <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
+          
             <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
+          
         </Animated.View>
-        <TouchableOpacity onPress={() => navigation.navigate('CreateAccount')} style={styles.switchButton}>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.replace('CreateAccount')} style={styles.switchButton}>
           <Text style={styles.switchText}>New user? <Text style={{ color: '#0077b6' }}>Sign Up</Text></Text>
         </TouchableOpacity>
       </View>

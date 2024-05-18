@@ -1,11 +1,10 @@
-/* [AI Doc Review] This React Native file implements a screen for creating a new group, allowing the user to input the group name and description, select whether the group is public or private, and then create the group by calling Firebase's Firestore database. */
-/* [AI Bug Review] The bug is that the `handleCreateGroup` function is defined inside the `CreateGroupScreen` component, which means it will be re-created every time the component updates, and its state will not be preserved. To fix this, you should define the function outside the component, so that it's only created once when the component is initialized.*/
- import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
-function CreateGroupScreen() {
+const CreateGroupScreen = ({ navigation }) => {
   const [groupName, setGroupName] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -24,10 +23,11 @@ function CreateGroupScreen() {
         public: isPublic,
         admins: [auth.currentUser.uid],
         members: [auth.currentUser.uid],
-        streak: 0
+        streak: 0,
+        type: 'chill', // Default type set to chill, can be updated based on user input
       };
 
-      const docRef = await addDoc(collection(db, "groups"), newGroup);
+      const docRef = await addDoc(collection(db, 'groups'), newGroup);
 
       // Add the group to the user's list of groups in their profile
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
@@ -35,85 +35,94 @@ function CreateGroupScreen() {
       });
 
       Alert.alert('Success', 'Group created successfully!');
+      navigation.goBack(); // Navigate back to the previous screen after group creation
     } catch (error) {
-      console.error("Error creating group:", error);
+      console.error('Error creating group:', error);
       Alert.alert('Error', 'Failed to create group.');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerCard}>
-        <Text style={styles.headerTitle}>Create a Group</Text>
-        <Text style={styles.headerSubtitle}>Enter group name and description below.</Text>
-      </View>
-      <View style={styles.divider} />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.headerCard}>
+          <Text style={styles.headerTitle}>Create a Group</Text>
+          <Text style={styles.headerSubtitle}>Enter group name and description below.</Text>
+        </View>
+        <View style={styles.divider} />
 
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Name:</Text>
-        <TextInput
-          style={styles.input}
-          value={groupName}
-          onChangeText={setGroupName}
-          autoCapitalize="words"
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.pickerLabel}>Name:</Text>
+          <TextInput
+            style={styles.input}
+            value={groupName}
+            onChangeText={setGroupName}
+            autoCapitalize="words"
+            placeholder="Group Name"
+            placeholderTextColor="#7e7e7e"
+          />
+        </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Description:</Text>
-        <TextInput
-          style={[styles.input, { height: 100 }]}
-          value={groupDesc}
-          onChangeText={setGroupDesc}
-          multiline
-          numberOfLines={4}
-        />
-      </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.pickerLabel}>Description:</Text>
+          <TextInput
+            style={[styles.input, { height: 100 }]}
+            value={groupDesc}
+            onChangeText={setGroupDesc}
+            multiline
+            numberOfLines={4}
+            placeholder="Group Description"
+            placeholderTextColor="#7e7e7e"
+          />
+        </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Privacy:</Text>
-        <TouchableOpacity
-          style={[styles.optionCard, isPublic ? styles.selectedOptionCard : null]}
-          onPress={() => setIsPublic(!isPublic)}
-        >
-          <View style={styles.optionCardContent}>
-            <Text style={styles.optionCardTitle}>{isPublic ? "Public Group" : "Private Group"}</Text>
-          </View>
-          <View style={styles.radioOuterCircle}>
-            {isPublic && <View style={styles.radioInnerCircle} />}
-          </View>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Privacy:</Text>
+          <TouchableOpacity
+            style={[styles.optionCard, isPublic ? styles.selectedOptionCard : null]}
+            onPress={() => setIsPublic(!isPublic)}
+          >
+            <View style={styles.optionCardContent}>
+              <Text style={styles.optionCardTitle}>{isPublic ? 'Public Group' : 'Private Group'}</Text>
+            </View>
+            <View style={styles.radioOuterCircle}>
+              {isPublic && <View style={styles.radioInnerCircle} />}
+            </View>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.footerCard}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={() => { }}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.saveButton]}
-          onPress={handleCreateGroup}
-        >
-          <Text style={styles.saveButtonText}>Create Group</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <View style={styles.footerCard}>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.saveButton]}
+            onPress={handleCreateGroup}
+          >
+            <Text style={styles.saveButtonText}>Create Group</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#000',
+  },
+  scrollContainer: {
+    padding: 20,
     paddingTop: 50,
   },
   headerCard: {
@@ -134,7 +143,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#232323',
     marginVertical: 20,
   },
-  pickerContainer: {
+  inputContainer: {
     marginBottom: 10,
   },
   pickerLabel: {
@@ -144,26 +153,15 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: 'gray',
+    borderColor: '#7e7e7e',
     padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
-  },
-  dropdownContainer: {
-    height: 40,
-  },
-  dropdown: {
-    backgroundColor: 'black',
-    borderWidth: 1,
-    borderColor: 'white',
     borderRadius: 10,
+    color: 'white',
+    backgroundColor: '#191919',
+    fontSize: 18,
   },
-  dropdownItem: {
-    justifyContent: 'flex-start',
-  },
-  dropdownMenu: {
-    backgroundColor: 'black',
-    borderWidth: 0,
+  pickerContainer: {
+    marginBottom: 10,
   },
   optionCard: {
     flexDirection: 'row',
@@ -172,7 +170,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#232323",
+    borderColor: '#232323',
     backgroundColor: 'black',
     marginBottom: 10,
   },
@@ -185,10 +183,6 @@ const styles = StyleSheet.create({
   optionCardTitle: {
     color: 'white',
     fontSize: 16,
-    marginBottom: 5,
-  },
-  optionCardDescription: {
-    color: '#7e7e7e',
   },
   radioOuterCircle: {
     height: 24,
@@ -200,13 +194,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioInnerCircle: {
-    height: 8,
-    width: 8,
+    height: 12,
+    width: 12,
     borderRadius: 6,
     backgroundColor: 'white',
   },
   footerCard: {
-    flexDirection: "row",
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
   },
@@ -218,11 +212,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: "#232323",
+    backgroundColor: '#232323',
     marginRight: 10,
   },
   cancelButtonText: {
     color: 'white',
+    fontSize: 18,
   },
   saveButton: {
     backgroundColor: 'white',
@@ -230,6 +225,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: 'black',
+    fontSize: 18,
   },
 });
 

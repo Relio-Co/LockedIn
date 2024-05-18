@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AuthScreen from './components/authentication/AuthScreen';
 import FeedScreen from './components/mainscreens/FeedScreen';
 import PostScreen from './components/posts/PostScreen';
 import ProfileScreen from './components/mainscreens/ProfileScreen';
@@ -33,7 +32,6 @@ function Navigation() {
         <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PickInterests" component={PickInterestsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Post" component={PostScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }}/>

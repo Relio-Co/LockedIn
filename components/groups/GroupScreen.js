@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
@@ -102,8 +102,29 @@ function GroupsScreen() {
         personalHabits: arrayUnion({ type: groupType, name: groupName })
       });
       Alert.alert('Success', `You have added ${groupName} to your personal habits.`);
+      fetchGroups(); // Refresh groups after adding
     } catch (error) {
       Alert.alert('Error', 'Failed to add personal habit');
+    }
+  };
+
+  const handleLeaveGroup = async (groupId) => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const groupRef = doc(db, 'groups', groupId);
+
+      await updateDoc(userRef, {
+        groups: arrayRemove(groupId)
+      });
+
+      await updateDoc(groupRef, {
+        members: arrayRemove(auth.currentUser.uid)
+      });
+
+      fetchGroups();
+      Alert.alert('Success', 'You have left the group.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to leave the group');
     }
   };
 
@@ -151,9 +172,9 @@ function GroupsScreen() {
     );
   };
 
-  const renderSection = (title, description, data) => {
+  const renderSection = (title, description, data, sectionKey) => {
     return (
-      <View style={styles.sectionContainer}>
+      <View style={styles.sectionContainer} key={sectionKey}>
         <Text style={styles.sectionHeader}>{title}</Text>
         <Text style={styles.sectionHeaderDescription}>{description}</Text>
         <FlatList
@@ -168,18 +189,20 @@ function GroupsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.searchBox}
-        placeholder="Search Groups"
-        placeholderTextColor="#ccc"
-        value={searchQuery}
-        onChangeText={handleSearch}
-      />
-      <TouchableOpacity style={styles.createGroupIcon} onPress={handleCreateGroup}>
-        <Icon name="users" size={30} color="white" />
-        <Icon name="plus" size={15} color="white" style={styles.plusIcon} />
-      </TouchableOpacity>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchBox}
+          placeholder="Search Groups"
+          placeholderTextColor="#ccc"
+          value={searchQuery}
+          onChangeText={handleSearch}
+        />
+        <TouchableOpacity style={styles.createGroupIcon} onPress={handleCreateGroup}>
+          <Icon name="users" size={30} color="white" />
+          <Icon name="plus" size={15} color="white" style={styles.plusIcon} />
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={[]}
         keyExtractor={(item) => item.id}
@@ -189,17 +212,20 @@ function GroupsScreen() {
             {renderSection(
               'Habits',
               'Habits are things you do everyday. Try adding a private habit to your profile.',
-              allGroups.filter(group => group.type === 'habits')
+              allGroups.filter(group => group.type === 'habits'),
+              'habits-section'
             )}
             {renderSection(
               'Challenges',
               'Challenges are habits that have a goal or certain number of days. Try joining a group challenge.',
-              allGroups.filter(group => group.type === 'challenges')
+              allGroups.filter(group => group.type === 'challenges'),
+              'challenges-section'
             )}
             {renderSection(
               'Chill',
               'Chill groups are regular accountability groups.',
-              allGroups.filter(group => !group.type || group.type === 'chill')
+              allGroups.filter(group => !group.type || group.type === 'chill'),
+              'chill-section'
             )}
           </View>
         )}
@@ -207,7 +233,7 @@ function GroupsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={fetchGroups} />
         }
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -217,13 +243,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     paddingTop: 50,
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
   searchBox: {
     backgroundColor: '#191919',
     color: 'white',
     padding: 15,
-    margin: 20,
     borderRadius: 50,
     fontSize: 18,
+    flex: 1,
+    marginRight: 10,
+  },
+  createGroupIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  plusIcon: {
+    marginLeft: -10,
   },
   sectionContainer: {
     marginBottom: 20,
@@ -240,15 +282,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ccc',
   },
-  createGroupIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 10,
-  },
-  plusIcon: {
-    marginLeft: -10,
-  },
   card: {
     flex: 1,
     borderRadius: 10,
@@ -256,7 +289,6 @@ const styles = StyleSheet.create({
     margin: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 150,
   },
   cardImage: {
     fontSize: 50,

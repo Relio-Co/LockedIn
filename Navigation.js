@@ -17,13 +17,22 @@ import FriendsScreen from './components/mainscreens/FriendsScreen';
 import NotificationsScreen from './components/mainscreens/NotificationsScreen'
 import GroupChatScreen from './components/groups/GroupChatScreen';
 import LeaderboardScreen from './components/groups/LeaderboardScreen';
+import WelcomeScreen from './components/authentication/WelcomeScreen';
+import CreateAccountScreen from './components/authentication/CreateAccountScreen';
+import PickInterestsScreen from './components/authentication/PickInterestsScreen';
+import LoginScreen from './components/authentication/LoginScreen';
+import GroupChatListScreen from './components/groups/GroupChatListScreen'
 
 const Stack = createNativeStackNavigator();
 
 function Navigation() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Auth">
+      <Stack.Navigator initialRouteName="Welcome">
+      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="PickInterests" component={PickInterestsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Post" component={PostScreen} options={{ headerShown: false }}/>
@@ -40,6 +49,7 @@ function Navigation() {
         <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="GroupChat" component={GroupChatScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="GroupChatList" component={GroupChatListScreen} options={{ headerShown: false }}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

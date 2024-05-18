@@ -1,29 +1,12 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  TouchableOpacity,
-} from "react-native";
-import { auth, db, storage } from "../../firebaseConfig";
-import {
-  doc,
-  updateDoc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import * as ImagePicker from "expo-image-picker";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import Icon from "react-native-vector-icons/FontAwesome";
-import { Image } from "expo-image";
-import { DynamicCollage, StaticCollage } from "react-native-images-collage";
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { auth, db, storage } from '../../firebaseConfig';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import { Image } from 'expo-image';
 
 function ProfileScreen({ navigation }) {
   const [username, setUsername] = useState("");
@@ -167,6 +150,36 @@ function ProfileScreen({ navigation }) {
     await updateDoc(userRef, { profilePicture: url });
   };
 
+  const getActivityGrid = () => {
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
+    });
+    
+    const activityMap = posts.reduce((acc, post) => {
+      const date = post.createdAt.toDate().toISOString().split('T')[0];
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(post.imageUrl);
+      return acc;
+    }, {});
+
+    return days.reverse().map(day => (
+      <ImageBackground 
+        key={day} 
+        source={{ uri: activityMap[day] ? activityMap[day][0] : null }}
+        style={[styles.activityDay, { backgroundColor: getActivityColor(activityMap[day] ? activityMap[day].length : 0) }]}
+      />
+    ));
+  };
+
+  const getActivityColor = (count) => {
+    if (count === 0) return '#ebedf0';
+    if (count === 1) return '#c6e48b';
+    if (count === 2) return '#7bc96f';
+    if (count === 3) return '#239a3b';
+    return '#196127';
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -193,6 +206,9 @@ function ProfileScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.settingsIcon} onPress={() => navigation.navigate('Settings')}>
+          <Icon name="cog" size={24} color="white" />
+        </TouchableOpacity>
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
@@ -212,13 +228,12 @@ function ProfileScreen({ navigation }) {
         ))}
       </View>
       <View style={styles.posts}>
-        <Text style={styles.postsTitle}>Posts</Text>
-        {posts.map((post, index) => (
-          <View key={index} style={styles.post}>
-            <Text style={styles.postText}>{post.text}</Text>
-          </View>
-        ))}
+        <Text style={styles.postsTitle}>Posts Activity (Last 30 Days)</Text>
+        <View style={styles.activityGrid}>
+          {getActivityGrid()}
+        </View>
       </View>
+<<<<<<< HEAD
       <TouchableOpacity
         style={styles.settingsButton}
         onPress={() => navigation.navigate("Settings")}
@@ -226,6 +241,8 @@ function ProfileScreen({ navigation }) {
         <Icon name="cog" size={24} color="white" />
         <Text style={styles.settingsButtonText}>Settings</Text>
       </TouchableOpacity>
+=======
+>>>>>>> app-revamp-firebase
     </ScrollView>
   );
 }
@@ -265,6 +282,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 10,
   },
+  settingsIcon: {
+    marginLeft: 'auto',
+  },
   stats: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -302,6 +322,7 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 10,
   },
+<<<<<<< HEAD
   post: {
     padding: 10,
     borderBottomWidth: 1,
@@ -324,6 +345,16 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     marginLeft: 5,
+=======
+  activityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  activityDay: {
+    width: 20,
+    height: 20,
+    margin: 2,
+>>>>>>> app-revamp-firebase
   },
 });
 

@@ -1,7 +1,5 @@
-/* [AI Doc Review] This JavaScript file defines a React Native component called `PostScreen` that allows users to upload posts with images and captions, selecting a group (if available) to share the post with. The component uses various Firebase services (Firebase Storage, Firestore, and Authentication) to handle image uploads, create new posts, and update group information. It also includes functionality for picking an image from the camera roll, uploading the image, and displaying the uploaded post on the screen. */
-/* [AI Bug Review] The code provided is a React Native component, not JavaScript. However, one potential bug or fault is that the `styles` and `pickerSelectStyles` objects are defined using `StyleSheet.create()`, which returns an object with the styles as properties. However, in the `PostScreen` function, these styles are being accessed like regular JavaScript objects (e.g., `styles.container`). This could lead to issues if the styles are not properly defined or if there are typos in the style names.
- */import React, { useState, useEffect } from 'react';
-import { View, Button, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { storage, db, auth } from '../../firebaseConfig';
@@ -150,10 +148,13 @@ function PostScreen({ route }) {
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
-          <Text style={styles.buttonText}>Pick an image from camera roll</Text>
+        <TouchableOpacity style={styles.profilePictureButton} onPress={pickImage}>
+          {image ? (
+            <Image source={{ uri: image }} style={styles.profilePicture} />
+          ) : (
+            <Text style={styles.buttonText}>Pick an image</Text>
+          )}
         </TouchableOpacity>
-        {image && <Image source={{ uri: image }} style={styles.image} />}
         <TextInput
           style={styles.input}
           placeholder="Write a caption..."
@@ -170,7 +171,7 @@ function PostScreen({ route }) {
           useNativeAndroidPickerStyle={false}
           placeholder={{ label: "Select a group...", value: null }}
         />
-        <TouchableOpacity style={styles.uploadButton} onPress={handleUpload} disabled={uploading}>
+        <TouchableOpacity style={styles.button} onPress={handleUpload} disabled={uploading}>
           <Text style={styles.buttonText}>Upload Post</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -183,17 +184,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
     backgroundColor: '#000',
   },
-  image: {
-    width: 300,
-    height: 300,
-    borderRadius: 10,
+  profilePictureButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#232323',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
   },
+  profilePicture: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
   input: {
-    width: '90%',
+    width: '100%',
     minHeight: 100,
     padding: 15,
     borderWidth: 2,
@@ -204,25 +212,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontSize: 16,
   },
-  imagePickerButton: {
-    marginBottom: 20,
-    padding: 10,
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderRadius: 10,
-    backgroundColor: '#333',
-  },
-  uploadButton: {
-    padding: 10,
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderRadius: 10,
-    backgroundColor: '#333',
+  button: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: '#00b4d8',
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
-  }
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
 });
 
 const pickerSelectStyles = StyleSheet.create({

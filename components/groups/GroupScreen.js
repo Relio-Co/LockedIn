@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, TextInput, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
@@ -10,7 +10,6 @@ function GroupsScreen() {
   const [groups, setGroups] = useState([]);
   const [publicGroups, setPublicGroups] = useState([]);
   const [allGroups, setAllGroups] = useState([]);
-  const [invites, setInvites] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
@@ -18,7 +17,6 @@ function GroupsScreen() {
   useEffect(() => {
     loadGroupsFromStorage();
     fetchPublicGroups();
-    fetchInvites();
   }, []);
 
   const loadGroupsFromStorage = async () => {
@@ -61,23 +59,6 @@ function GroupsScreen() {
     }
   };
 
-  const fetchInvites = async () => {
-    try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const groupInvites = docSnap.data().groupsInvitedTo || [];
-        const invitesQuery = await Promise.all(groupInvites.map(groupId => getDoc(doc(db, 'groups', groupId))));
-        const invitesData = invitesQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-        setInvites(invitesData);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to fetch group invites');
-    }
-  };
-
-  const getMemberCount = (members) => members ? members.length : '0';
-
   const handleJoinGroup = async (groupId) => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -114,54 +95,112 @@ function GroupsScreen() {
     }
   };
 
+  const handleAddDefaultGroup = async (groupType, groupName) => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        personalHabits: arrayUnion({ type: groupType, name: groupName })
+      });
+      Alert.alert('Success', `You have added ${groupName} to your personal habits.`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add personal habit');
+    }
+  };
+
+  const getMemberCount = (members) => members ? members.length : '0';
+
   const isMember = (groupId) => {
     return groups.some(group => group.id === groupId);
   };
 
+  const renderGroupItem = ({ item }) => {
+    const groupType = item.type || 'chill';
+    const groupColor = groupType === 'habits' ? '#00b4d8' : groupType === 'challenges' ? '#ff8c00' : '#32cd32';
+    const isDefault = item.isDefault || false;
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: groupColor }]}
+        onPress={isMember(item.id) ? () => navigation.navigate('GroupDetails', { groupId: item.id }) : null}
+      >
+        <Text style={styles.cardImage}>{item.groupIcon || '👥'}</Text>
+        <Text style={styles.cardText}>#{item.name}</Text>
+        <View style={styles.cardFooter}>
+          <Icon name="user" size={20} color="white" />
+          <Text style={styles.cardText}>{getMemberCount(item.members)}</Text>
+        </View>
+        {!isMember(item.id) && !isDefault && (
+          <TouchableOpacity style={styles.cardButton} onPress={() => handleJoinGroup(item.id)}>
+            <Icon name="lock" size={20} color="black" />
+            <Text style={styles.cardButtonText}>Join</Text>
+          </TouchableOpacity>
+        )}
+        {isDefault && (
+          <TouchableOpacity style={styles.cardButton} onPress={() => handleAddDefaultGroup(groupType, item.name)}>
+            <Icon name="plus" size={20} color="black" />
+            <Text style={styles.cardButtonText}>Add</Text>
+          </TouchableOpacity>
+        )}
+        {isMember(item.id) && (
+          <TouchableOpacity style={styles.cardButton} onPress={() => handleLeaveGroup(item.id)}>
+            <Icon name="sign-out" size={20} color="black" />
+            <Text style={styles.cardButtonText}>Leave</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderSection = (title, description, data) => {
+    return (
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionHeader}>{title}</Text>
+        <Text style={styles.sectionHeaderDescription}>{description}</Text>
+        <FlatList
+          data={data}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          renderItem={renderGroupItem}
+          key={(data.length % 2).toString()} // Changing key to force re-render
+        />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Feed')} style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color="white" />
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Groups</Text>
-        <TouchableOpacity onPress={handleCreateGroup} style={styles.createButton}>
-          <Icon name="plus" size={20} color="white" />
-          <Text style={styles.createButtonText}>Create Group</Text>
-        </TouchableOpacity>
-      </View>
       <TextInput
         style={styles.searchBox}
         placeholder="Search Groups"
-        placeholderTextColor="grey"
+        placeholderTextColor="#ccc"
         value={searchQuery}
         onChangeText={handleSearch}
       />
+      <TouchableOpacity style={styles.createGroupIcon} onPress={handleCreateGroup}>
+        <Icon name="users" size={30} color="white" />
+        <Icon name="plus" size={15} color="white" style={styles.plusIcon} />
+      </TouchableOpacity>
       <FlatList
-        data={[...groups, ...publicGroups.filter(group => !isMember(group.id))]}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={[styles.card, isMember(item.id) && styles.memberCard]}
-            onPress={isMember(item.id) ? () => navigation.navigate('GroupDetails', { groupId: item.id }) : null}
-          >
-            <Image source={{ uri: item.image || 'https://via.placeholder.com/50' }} style={styles.cardImage} />
-            <Text style={styles.cardText}>{item.name}</Text>
-            <Text style={styles.cardText}>{getMemberCount(item.members)} members</Text>
-            {!isMember(item.id) && (
-              <TouchableOpacity style={styles.cardButton} onPress={() => handleJoinGroup(item.id)}>
-                <Icon name="sign-in" size={20} color="white" />
-                <Text style={styles.cardButtonText}>Join</Text>
-              </TouchableOpacity>
-            )}
-            {isMember(item.id) && <Icon name="lock" size={20} color="white" style={styles.lockIcon} />}
-          </TouchableOpacity>
-        )}
+        data={[]}
+        keyExtractor={(item) => item.id}
+        renderItem={null}
         ListHeaderComponent={() => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>All Groups</Text>
+          <View>
+            {renderSection(
+              'Habits',
+              'Habits are things you do everyday. Try adding a private habit to your profile.',
+              allGroups.filter(group => group.type === 'habits')
+            )}
+            {renderSection(
+              'Challenges',
+              'Challenges are habits that have a goal or certain number of days. Try joining a group challenge.',
+              allGroups.filter(group => group.type === 'challenges')
+            )}
+            {renderSection(
+              'Chill',
+              'Chill groups are regular accountability groups.',
+              allGroups.filter(group => !group.type || group.type === 'chill')
+            )}
           </View>
         )}
         refreshControl={
@@ -178,76 +217,49 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     paddingTop: 50,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'white',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'black',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-  },
-  backButtonText: {
-    color: 'white',
-    marginLeft: 5,
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E90FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-  },
-  createButtonText: {
-    color: 'white',
-    marginLeft: 5,
-  },
   searchBox: {
-    backgroundColor: '#333',
+    backgroundColor: '#191919',
     color: 'white',
-    padding: 10,
+    padding: 15,
     margin: 20,
-    borderRadius: 5,
+    borderRadius: 50,
+    fontSize: 18,
+  },
+  sectionContainer: {
+    marginBottom: 20,
   },
   sectionHeader: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-  },
-  sectionHeaderText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
   },
+  sectionHeaderDescription: {
+    paddingHorizontal: 20,
+    fontSize: 14,
+    color: '#ccc',
+  },
+  createGroupIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  plusIcon: {
+    marginLeft: -10,
+  },
   card: {
     flex: 1,
-    backgroundColor: '#333',
     borderRadius: 10,
     padding: 20,
     margin: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  memberCard: {
-    backgroundColor: '#1E90FF',
+    minHeight: 150,
   },
   cardImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
+    fontSize: 50,
     marginBottom: 10,
   },
   cardText: {
@@ -255,23 +267,23 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 5,
   },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
   cardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#444',
+    backgroundColor: 'white',
     padding: 5,
     borderRadius: 5,
-    margin: 5,
+    marginTop: 5,
     justifyContent: 'center',
   },
   cardButtonText: {
-    color: 'white',
+    color: 'black',
     marginLeft: 5,
-  },
-  lockIcon: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
   },
 });
 

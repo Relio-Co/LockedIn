@@ -162,7 +162,8 @@ const FeedScreen = () => {
             id: postDoc.id,
             ...postData,
             createdByUsername: userSnap.exists() ? userSnap.data().username : "Unknown",
-            groupName: groupSnap && groupSnap.exists() ? groupSnap.data().name : "Unknown",
+            profilePictureUrl: userSnap.exists() ? userSnap.data().profilePicture : null,
+            groupName: groupSnap && groupSnap.exists() ? groupSnap.data().name : null,
           };
         })
       );
@@ -233,29 +234,55 @@ const FeedScreen = () => {
           contentFit="cover"
           transition={1000}
         >
-          <View style={styles.pillContainer}>
-            <TouchableOpacity onPress={() => handleProfilePress(item.createdBy)}>
-              <View style={styles.pill}>
-                <Text style={styles.pillText}>{item.createdByUsername} 😊</Text>
+          <View style={styles.overlay}>
+            <View style={styles.header}>
+              <View style={styles.profileContainer}>
+                <Image
+                  style={styles.profilePicture}
+                  source={{ uri: item.profilePictureUrl }}
+                />
+                <Text style={styles.emoji}>😊</Text>
               </View>
-            </TouchableOpacity>
-            {item.groupName && (
-              <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
-                <View style={styles.pill}>
-                  <Text style={styles.pillText}>#{item.groupName}</Text>
+              <View style={styles.profileInfo}>
+                <Text style={styles.username}>{item.createdByUsername}</Text>
+                <Text style={styles.postedTime}>{new Date(item.createdAt.seconds * 1000).toDateString()}</Text>
+              </View>
+              <View style={styles.groupInfo}>
+                {isUserInGroup(item.groupId) ? (
+                  <View style={styles.groupIconContainer}>
+                    <Icon name="check-circle" size={24} color="#00b4d8" style={styles.iconBackground} />
+                  </View>
+                ) : (
+                  <View style={styles.groupIconContainer}>
+                    <Icon name="unlock-alt" size={24} color="#000000" style={styles.iconBackground} />
+                  </View>
+                )}
+                {item.groupName && (
+                  <View style={styles.groupPill}>
+                    <Text style={styles.groupPillText}>#{item.groupName}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <View style={styles.interactionButtons}>
+              <TouchableOpacity style={styles.interactionButton}>
+                <View style={styles.frostedIconContainer}>
+                  <Icon name="comment" size={20} color="#ffffff" />
                 </View>
               </TouchableOpacity>
-            )}
-            {!isUserInGroup(item.groupId) && item.groupName && (
-              <TouchableOpacity onPress={() => handleGroupPress(item.groupId)}>
-                <View style={styles.pill}>
-                  <Text style={styles.pillTextSuggest}>Suggested</Text>
+              <TouchableOpacity style={styles.interactionButton}>
+                <View style={styles.frostedIconContainer}>
+                  <Icon name="thumbs-up" size={20} color="#ffffff" />
                 </View>
               </TouchableOpacity>
-            )}
+              <TouchableOpacity style={styles.interactionButton}>
+                <View style={styles.frostedIconContainer}>
+                  <Icon name="share" size={20} color="#ffffff" />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
         </Image>
-        <Text style={styles.forYouCaption}>{item.caption}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -313,7 +340,7 @@ const FeedScreen = () => {
 
   const renderContent = () => {
     if (loading) {
-      return <ActivityIndicator size="large" color="#1e90ff" />;
+      return <ActivityIndicator size="large" color="#00b4d8" />;
     }
 
     if (feedType === 0 && friendsPosts.length === 0) {
@@ -336,7 +363,7 @@ const FeedScreen = () => {
               onRefresh={handleRefresh}
               progressViewOffset={100}
               progressBackgroundColor="#282828"
-              colors={["#1e90ff"]}
+              colors={["#00b4d8"]}
             />
           }
           contentContainerStyle={styles.flatListContainer}
@@ -355,7 +382,7 @@ const FeedScreen = () => {
             onRefresh={handleRefresh}
             progressViewOffset={100}
             progressBackgroundColor="#282828"
-            colors={["#1e90ff"]}
+            colors={["#00b4d8"]}
           />
         }
         contentContainerStyle={styles.flatListContainer}
@@ -398,42 +425,42 @@ const FeedScreen = () => {
         </View>
       </PagerView>
 
-      <View style={styles.floatingButtonsContainer}>
+      <View style={styles.navBar}>
         <TouchableOpacity
-          style={styles.floatingButton}
+          style={styles.navBarItem}
+          onPress={() => navigation.navigate("Groups")}
+          accessibilityLabel="Habit"
+        >
+          <Icon name="list-alt" size={26} color="#ffffff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navBarItem}
+          onPress={() => navigation.navigate("GroupChatList")}
+          accessibilityLabel="Chat"
+        >
+          <Icon name="comments" size={26} color="#ffffff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navBarItem}
+          onPress={() => navigation.navigate("Post")}
+          accessibilityLabel="Add"
+        >
+          <Icon name="plus-circle" size={26} color="#ffffff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navBarItem}
           onPress={() => navigation.navigate("NotificationsScreen")}
           accessibilityLabel="Notifications"
         >
-          <Icon name="bell" size={24} color="white" />
+          <Icon name="bell" size={26} color="#ffffff" />
           {invitesCount > 0 && <View style={styles.notificationDot} />}
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.floatingButton}
-          onPress={() => navigation.navigate("Groups")}
-          accessibilityLabel="Groups"
-        >
-          <Icon name="users" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.floatingButton}
-          onPress={() => navigation.navigate("Post")}
-          accessibilityLabel="New Post"
-        >
-          <Icon name="plus" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.floatingButton}
-          onPress={() => navigation.navigate("FriendsScreen")}
-          accessibilityLabel="Search Friends"
-        >
-          <Icon name="search" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.floatingButton}
+          style={styles.navBarItem}
           onPress={() => navigation.navigate("Profile")}
           accessibilityLabel="Profile"
         >
-          <Icon name="user" size={24} color="white" />
+          <Icon name="user" size={26} color="#ffffff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -442,12 +469,14 @@ const FeedScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 50,
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#000000",
+    paddingTop: 50,
+    paddingBottom: 20,
   },
   tabBar: {
     flexDirection: "row",
+    backgroundColor: "#000000",
   },
   toggleButton: {
     flex: 1,
@@ -459,7 +488,7 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 16,
     fontWeight: "500",
-    color: "white",
+    color: "#ffffff",
   },
   buttonActive: {
     borderBottomColor: "#ffffff",
@@ -490,10 +519,12 @@ const styles = StyleSheet.create({
   },
   usernameText: {
     fontSize: 16,
-    color: "white",
+    color: "#ffffff",
   },
   emoji: {
-    marginLeft: 5,
+    position: "absolute",
+    bottom: 0,
+    right: 0,
     fontSize: 16,
   },
   groupNameContainer: {
@@ -507,7 +538,7 @@ const styles = StyleSheet.create({
   },
   groupNameText: {
     fontSize: 14,
-    color: "white",
+    color: "#ffffff",
   },
   forYouImage: {
     width: "100%",
@@ -517,7 +548,7 @@ const styles = StyleSheet.create({
   },
   forYouCaption: {
     fontSize: 16,
-    color: "white",
+    color: "#ffffff",
     marginTop: 10,
   },
   pillContainer: {
@@ -536,34 +567,12 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   pillText: {
-    color: "white",
+    color: "#ffffff",
     fontSize: 14,
   },
   pillTextSuggest: {
     color: "yellow",
     fontSize: 14,
-  },
-  floatingButtonsContainer: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    flexDirection: "row",
-  },
-  floatingButton: {
-    backgroundColor: "#282828",
-    borderRadius: 30,
-    padding: 10,
-    marginLeft: 10,
-    position: "relative",
-  },
-  notificationDot: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "red",
   },
   groupCard: {
     padding: 10,
@@ -622,17 +631,132 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 18,
-    color: "white",
+    color: "#ffffff",
     marginBottom: 20,
   },
   addButton: {
     padding: 10,
-    backgroundColor: "#1e90ff",
+    backgroundColor: "#00b4d8",
     borderRadius: 5,
   },
   addButtonText: {
-    color: "white",
+    color: "#ffffff",
     fontSize: 16,
+  },
+  navBar: {
+    flexDirection: "row",
+    backgroundColor: "#000000",
+    height: 60,
+    justifyContent: "space-around",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#1e1e1e",
+  },
+  navBarItem: {
+    alignItems: "center",
+  },
+  navBarText: {
+    color: "#ffffff",
+    fontSize: 12,
+  },
+  notificationDot: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "red",
+  },
+  forYouPostContainer: {
+    marginVertical: 10,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "space-between",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 10,
+  },
+  profileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  profilePicture: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  profileInfo: {
+    justifyContent: "center",
+  },
+  username: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  postedTime: {
+    fontSize: 12,
+    color: "#b0b0b0",
+  },
+  groupInfo: {
+    alignItems: "flex-end",
+  },
+  groupIconContainer: {
+    marginBottom: 5,
+  },
+  groupPill: {
+    backgroundColor: "#333",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 5,
+  },
+  groupPillText: {
+    color: "#ffffff",
+    fontSize: 14,
+  },
+  frostedPillContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    margin: 10,
+  },
+  frostedPillText: {
+    marginLeft: 5,
+    color: "#ffffff",
+    fontSize: 14,
+  },
+  interactionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginHorizontal: 10,
+  },
+  interactionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  frostedIconContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 400,
+    padding: 10,
+  },
+  captionContainer: {
+    display: false,
+    marginBottom: 10,
+    borderRadius: 400,
+    backgroundColor: "#1c1c1e",
+    padding: 10,
   },
 });
 

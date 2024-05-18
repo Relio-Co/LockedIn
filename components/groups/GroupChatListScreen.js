@@ -7,6 +7,12 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 
+const lifeCoaches = [
+  { name: 'Steve Jobs', avatar: 'https://placekitten.com/200/200' },
+  { name: 'Darth Vader', avatar: 'https://placekitten.com/201/201' },
+  { name: 'Peter Griffin', avatar: 'https://placekitten.com/202/202' },
+];
+
 const GroupChatListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allChats, setAllChats] = useState([]);
@@ -123,6 +129,21 @@ const GroupChatListScreen = () => {
     );
   };
 
+  const renderAIChatItem = (coach) => (
+    <TouchableOpacity onPress={() => navigation.navigate('AIChatScreen', { coach })}>
+      <View style={styles.chatContainer}>
+        <Image style={styles.avatar} source={{ uri: coach.avatar }} />
+        <View style={styles.chatInfo}>
+          <Text style={styles.chatName}>{coach.name} Life Coach</Text>
+          <Text style={styles.lastMessage}>Chat with our {coach.name} AI</Text>
+        </View>
+        <View style={styles.chatActions}>
+          <Icon name="ra" size={24} color="white" />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   if (!userProfile) {
     return <View style={styles.loading}><Text>Loading...</Text></View>;
   }
@@ -143,6 +164,11 @@ const GroupChatListScreen = () => {
         keyExtractor={item => item.id}
         renderItem={renderChatItem}
         contentContainerStyle={styles.chatList}
+        ListHeaderComponent={() => (
+          <>
+            {lifeCoaches.map(coach => renderAIChatItem(coach))}
+          </>
+        )}
       />
     </KeyboardAvoidingView>
   );

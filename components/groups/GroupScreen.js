@@ -15,48 +15,34 @@ function GroupsScreen() {
   const navigation = useNavigation();
 
   useEffect(() => {
-    loadGroupsFromStorage();
-    fetchPublicGroups();
+    fetchAllGroups();
   }, []);
 
-  const loadGroupsFromStorage = async () => {
-    const storedGroups = await AsyncStorage.getItem('userGroups');
-    if (storedGroups) {
-      setGroups(JSON.parse(storedGroups));
-    } else {
-      fetchGroups();
-    }
-  };
-
-  const fetchGroups = async () => {
+  const fetchAllGroups = async () => {
     setRefreshing(true);
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const docSnap = await getDoc(userRef);
+      let userGroups = [];
       if (docSnap.exists()) {
         const groupIds = docSnap.data().groups || [];
         const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, 'groups', groupId))));
-        const groupsData = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-        setGroups(groupsData);
-        setAllGroups(groupsData.concat(publicGroups));
-        await AsyncStorage.setItem('userGroups', JSON.stringify(groupsData));
+        userGroups = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setGroups(userGroups);
+        await AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
       }
+
+      const publicGroupsQuery = query(collection(db, 'groups'), where('public', '==', true));
+      const querySnapshot = await getDocs(publicGroupsQuery);
+      const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      setPublicGroups(publicGroupsData);
+      setAllGroups([...userGroups, ...publicGroupsData.filter(pg => !userGroups.some(ug => ug.id === pg.id))]);
+
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch groups');
     }
     setRefreshing(false);
-  };
-
-  const fetchPublicGroups = async () => {
-    try {
-      const publicGroupsQuery = query(collection(db, 'groups'), where('public', '==', true));
-      const querySnapshot = await getDocs(publicGroupsQuery);
-      const publicGroupsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setPublicGroups(publicGroupsData);
-      setAllGroups(groups.concat(publicGroupsData));
-    } catch (error) {
-      Alert.alert('Error', 'Failed to fetch public groups');
-    }
   };
 
   const handleJoinGroup = async (groupId) => {
@@ -72,7 +58,7 @@ function GroupsScreen() {
         members: arrayUnion(auth.currentUser.uid)
       });
 
-      fetchGroups();
+      fetchAllGroups();
       Alert.alert('Success', 'You have joined the group.');
     } catch (error) {
       Alert.alert('Error', 'Failed to join the group');
@@ -86,25 +72,12 @@ function GroupsScreen() {
   const handleSearch = (text) => {
     setSearchQuery(text);
     if (text === '') {
-      setAllGroups(groups.concat(publicGroups));
+      setAllGroups([...groups, ...publicGroups]);
     } else {
       const filteredGroups = allGroups.filter(group =>
         group.name.toLowerCase().includes(text.toLowerCase())
       );
       setAllGroups(filteredGroups);
-    }
-  };
-
-  const handleAddDefaultGroup = async (groupType, groupName) => {
-    try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        personalHabits: arrayUnion({ type: groupType, name: groupName })
-      });
-      Alert.alert('Success', `You have added ${groupName} to your personal habits.`);
-      fetchGroups(); // Refresh groups after adding
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add personal habit');
     }
   };
 
@@ -121,7 +94,7 @@ function GroupsScreen() {
         members: arrayRemove(auth.currentUser.uid)
       });
 
-      fetchGroups();
+      fetchAllGroups();
       Alert.alert('Success', 'You have left the group.');
     } catch (error) {
       Alert.alert('Error', 'Failed to leave the group');
@@ -137,11 +110,10 @@ function GroupsScreen() {
   const renderGroupItem = ({ item }) => {
     const groupType = item.type || 'chill';
     const groupColor = groupType === 'habits' ? '#00b4d8' : groupType === 'challenges' ? '#ff8c00' : '#32cd32';
-    const isDefault = item.isDefault || false;
 
     return (
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: groupColor }]}
+        style={[styles.card, { backgroundColor: groupColor, borderColor: isMember(item.id) ? 'gold' : 'transparent' }]}
         onPress={isMember(item.id) ? () => navigation.navigate('GroupDetails', { groupId: item.id }) : null}
       >
         <Text style={styles.cardImage}>{item.groupIcon || '👥'}</Text>
@@ -150,22 +122,10 @@ function GroupsScreen() {
           <Icon name="user" size={20} color="white" />
           <Text style={styles.cardText}>{getMemberCount(item.members)}</Text>
         </View>
-        {!isMember(item.id) && !isDefault && (
+        {!isMember(item.id) && (
           <TouchableOpacity style={styles.cardButton} onPress={() => handleJoinGroup(item.id)}>
             <Icon name="lock" size={20} color="black" />
             <Text style={styles.cardButtonText}>Join</Text>
-          </TouchableOpacity>
-        )}
-        {isDefault && (
-          <TouchableOpacity style={styles.cardButton} onPress={() => handleAddDefaultGroup(groupType, item.name)}>
-            <Icon name="plus" size={20} color="black" />
-            <Text style={styles.cardButtonText}>Add</Text>
-          </TouchableOpacity>
-        )}
-        {isMember(item.id) && (
-          <TouchableOpacity style={styles.cardButton} onPress={() => handleLeaveGroup(item.id)}>
-            <Icon name="sign-out" size={20} color="black" />
-            <Text style={styles.cardButtonText}>Leave</Text>
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -180,9 +140,9 @@ function GroupsScreen() {
         <FlatList
           data={data}
           keyExtractor={item => item.id}
-          numColumns={2}
+          numColumns={4}
           renderItem={renderGroupItem}
-          key={(data.length % 2).toString()} // Changing key to force re-render
+          key={(data.length % 4).toString()} // Changing key to force re-render
         />
       </View>
     );
@@ -230,7 +190,7 @@ function GroupsScreen() {
           </View>
         )}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchGroups} />
+          <RefreshControl refreshing={refreshing} onRefresh={fetchAllGroups} />
         }
       />
     </KeyboardAvoidingView>
@@ -285,19 +245,21 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: 10,
-    padding: 20,
-    margin: 10,
+    padding: 10,
+    margin: 5,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
   cardImage: {
-    fontSize: 50,
-    marginBottom: 10,
+    fontSize: 24,
+    marginBottom: 5,
   },
   cardText: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'white',
     marginBottom: 5,
+    textAlign: 'center',
   },
   cardFooter: {
     flexDirection: 'row',

@@ -3,16 +3,23 @@ version: '3.8'
 services:
   app:
     build: .
+    container_name: app_container
     volumes:
       - .:/app
       - /app/node_modules
     ports:
       - '8081:8081'
-    command: npm start
+    command: sh -c 'npm install && npm start'
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   watchtower:
     image: containrrr/watchtower
+    container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - WATCHTOWER_POLL_INTERVAL=10
+      - WATCHTOWER_POLL_INTERVAL=30
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_LABEL_ENABLE=true

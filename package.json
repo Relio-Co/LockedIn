@@ -25,6 +25,7 @@
     "react-native-gesture-handler": "~2.16.1",
     "react-native-gifted-chat": "^2.4.0",
     "react-native-image-overlay": "^0.1.2",
+    "react-native-images-collage": "^3.3.5",
     "react-native-pager-view": "6.3.0",
     "react-native-picker-select": "^9.1.3"
   },

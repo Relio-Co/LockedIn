@@ -160,7 +160,7 @@ const CreateAccountScreen = () => {
 
       await setDoc(doc(db, "users", user.uid), userProfile);
       await AsyncStorage.setItem("userProfile", JSON.stringify(userProfile));
-      navigation.navigate('PickInterests');
+      navigation.replace('PickInterests');
       Alert.alert("Success", "Registration successful!");
     } catch (error) {
       Alert.alert("Sign Up Failed", error.message);
@@ -228,7 +228,7 @@ const CreateAccountScreen = () => {
             <Text style={styles.buttonText}>Sign Up</Text>
           </TouchableOpacity>
         </Animated.View>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.switchButton}>
+        <TouchableOpacity onPress={() => navigation.replace('Login')} style={styles.switchButton}>
           <Text style={styles.switchText}>Already have an account? <Text style={{ color: '#0077b6' }}>Log In</Text></Text>
         </TouchableOpacity>
       </View>

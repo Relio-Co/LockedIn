@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
@@ -77,11 +77,11 @@ const GroupFeedScreen = ({ route }) => {
   const isAdmin = group && group.admins && group.admins.includes(auth.currentUser.uid);
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Text style={styles.header}>{group ? group.name : 'Loading...'}</Text>
       <Text style={styles.streak}>Group Streak: {group ? group.streak : 0} <Icon name="bolt" size={24} color="orange" /></Text>
       <View style={styles.iconBar}>
-      <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { groupId })}>
+        <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { groupId })}>
           <Icon name="trophy" size={24} color="gold" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Post', { groupId })}>
@@ -120,7 +120,7 @@ const GroupFeedScreen = ({ route }) => {
           </TouchableOpacity>
         )}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -132,30 +132,36 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   header: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 20,
+    textAlign: 'center',
   },
   streak: {
     color: 'orange',
     fontSize: 18,
-    marginVertical: 10
+    marginBottom: 20,
+    textAlign: 'center'
   },
   iconBar: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-around',
     marginBottom: 20,
   },
   postContainer: {
     padding: 15,
-    borderBottomWidth: 1,
-    borderColor: '#fff',
-    marginBottom: 10,
-    backgroundColor: '#191919',
+    borderRadius: 10,
+    marginBottom: 15,
+    backgroundColor: '#1a1a1a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
+    elevation: 5,
   },
   postTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 5,
@@ -169,7 +175,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 10,
-    marginBottom: 5,
+    marginBottom: 10,
   },
   postFooter: {
     flexDirection: 'row',

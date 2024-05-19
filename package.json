@@ -13,6 +13,7 @@
     "@react-native-masked-view/masked-view": "0.3.1",
     "expo": "~51.0.5",
     "expo-camera": "~15.0.8",
+    "expo-haptics": "~13.0.1",
     "expo-image": "~1.12.9",
     "expo-image-manipulator": "~12.0.5",
     "expo-image-picker": "~15.0.4",
@@ -20,14 +21,14 @@
     "expo-status-bar": "~1.12.1",
     "firebase": "^10.11.1",
     "firebase-admin": "^12.1.0",
+    "groq": "^3.42.1",
     "react": "18.2.0",
     "react-native": "0.74.1",
     "react-native-gesture-handler": "~2.16.1",
     "react-native-gifted-chat": "^2.4.0",
     "react-native-image-overlay": "^0.1.2",
     "react-native-pager-view": "6.3.0",
-    "react-native-picker-select": "^9.1.3",
-    "expo-haptics": "~13.0.1"
+    "react-native-picker-select": "^9.1.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

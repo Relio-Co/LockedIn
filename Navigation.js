@@ -21,6 +21,7 @@ import CreateAccountScreen from './components/authentication/CreateAccountScreen
 import PickInterestsScreen from './components/authentication/PickInterestsScreen';
 import LoginScreen from './components/authentication/LoginScreen';
 import GroupChatListScreen from './components/groups/GroupChatListScreen'
+import AIChatScreen from './components/groups/AIChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,7 @@ function Navigation() {
         <Stack.Screen name="GroupChat" component={GroupChatScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="GroupChatList" component={GroupChatListScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="AIChatScreen" component={AIChatScreen} options={{ headerShown: false }}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

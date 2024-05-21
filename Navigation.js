@@ -24,7 +24,6 @@ import GroupChatListScreen from './components/groups/GroupChatListScreen'
 import AIChatScreen from './components/groups/AIChatScreen';
 import ForYouFeedScreen from './components/mainscreens/ForYouFeedScreen';
 import MarketplaceScreen from './components/marketplace/MarketplaceScreen';
-
 const Stack = createNativeStackNavigator();
 
 function Navigation() {

@@ -15,6 +15,7 @@ function ProfileScreen({ navigation }) {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [posts, setPosts] = useState([]);
   const [streaks, setStreaks] = useState({});
+  const [groupStreaks, setGroupStreaks] = useState({});
 
   useEffect(() => {
     fetchUserData();
@@ -29,7 +30,11 @@ function ProfileScreen({ navigation }) {
         setUsername(userData.username);
         setName(userData.name);
         setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-        setStreaks(userData.streaks || {});
+        setStreaks({
+          streakScore: userData.streakScore,
+          highestGlobalStreak: userData.highestGlobalStreak,
+        });
+        setGroupStreaks(userData.groupStreaks || {});
 
         // Fetch user's posts
         const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', auth.currentUser.uid));
@@ -192,14 +197,17 @@ function ProfileScreen({ navigation }) {
       </View>
       <View style={styles.stats}>
         <Text style={styles.stat}>Posts: {posts.length}</Text>
-        <Text style={styles.stat}>Total Streaks: {Object.values(streaks).reduce((a, b) => a + b, 0)}</Text>
+        <Text style={styles.stat}>Current Streak: {streaks.streakScore} days</Text>
+        <Text style={styles.stat}>Highest Streak: {streaks.highestGlobalStreak} days</Text>
       </View>
       <View style={styles.streaks}>
-        <Text style={styles.streaksTitle}>Streaks</Text>
-        {Object.entries(streaks).map(([group, streak]) => (
+        <Text style={styles.streaksTitle}>Group Streaks</Text>
+        {Object.entries(groupStreaks).map(([group, streakData]) => (
           <View key={group} style={styles.streak}>
             <Icon name="bolt" size={20} color="orange" />
-            <Text style={styles.streakText}>{group}: {streak} days</Text>
+            <Text style={styles.streakText}>
+              {group.name}: {streakData.streakScore} days (Highest: {streakData.highestStreak} days)
+            </Text>
           </View>
         ))}
       </View>

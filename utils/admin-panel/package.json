@@ -1,0 +1,13 @@
+{
+    "name": "Lockedin Admin Panel",
+    "version": "1.0.0",
+    "scripts": {
+      "start": "concurrently \"npm run server\" \"npm run client\"",
+      "server": "node server/server.js",
+      "client": "npm start --prefix admin-dashboard"
+    },
+    "devDependencies": {
+      "concurrently": "^7.0.0"
+    }
+  }
+  

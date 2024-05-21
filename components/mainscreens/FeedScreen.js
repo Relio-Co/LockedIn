@@ -224,7 +224,7 @@ const FeedScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
               setProfileModalVisible(false);
-              navigation.navigate('ViewProfile');
+              navigation.navigate('Profile');
             }}>
               <Text style={styles.modalButtonText}>View Profile</Text>
             </TouchableOpacity>

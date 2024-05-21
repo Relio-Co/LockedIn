@@ -23,7 +23,7 @@ import LoginScreen from './components/authentication/LoginScreen';
 import GroupChatListScreen from './components/groups/GroupChatListScreen'
 import AIChatScreen from './components/groups/AIChatScreen';
 import ForYouFeedScreen from './components/mainscreens/ForYouFeedScreen';
-import MarketplaceScreen from './components/marketplace/MarketPlaceScreen';
+import MarketplaceScreen from './components/marketplace/MarketplaceScreen';
 
 const Stack = createNativeStackNavigator();
 

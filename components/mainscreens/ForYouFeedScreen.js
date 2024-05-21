@@ -7,6 +7,7 @@ import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firesto
 import { Image } from 'expo-image';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const ForYouFeedScreen = () => {
   const [groups, setGroups] = useState([]);

@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { Image } from 'expo-image';
 
 const CreateGroupScreen = ({ navigation }) => {
   const [groupName, setGroupName] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [friends, setFriends] = useState([]);
+  const [selectedFriends, setSelectedFriends] = useState([]);
+
+  useEffect(() => {
+    const fetchFriends = async () => {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const friendIds = userSnap.data().friends || [];
+        const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
+        const friendSnaps = await Promise.all(friendQueries);
+        const friendsData = friendSnaps.map((snap) => ({ id: snap.id, ...snap.data() }));
+        setFriends(friendsData);
+      }
+    };
+
+    fetchFriends();
+  }, []);
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || !groupDesc.trim()) {
@@ -16,30 +35,53 @@ const CreateGroupScreen = ({ navigation }) => {
     }
 
     try {
-      // Create the new group with the current user as the admin
       const newGroup = {
         name: groupName,
         description: groupDesc,
         public: isPublic,
         admins: [auth.currentUser.uid],
-        members: [auth.currentUser.uid],
+        members: [auth.currentUser.uid, ...selectedFriends.map(friend => friend.id)],
         streak: 0,
-        type: 'chill', // Default type set to chill, can be updated based on user input
+        type: 'chill',
       };
 
       const docRef = await addDoc(collection(db, 'groups'), newGroup);
 
-      // Add the group to the user's list of groups in their profile
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         groups: arrayUnion(docRef.id)
       });
 
       Alert.alert('Success', 'Group created successfully!');
-      navigation.goBack(); // Navigate back to the previous screen after group creation
+      navigation.goBack();
     } catch (error) {
       console.error('Error creating group:', error);
       Alert.alert('Error', 'Failed to create group.');
     }
+  };
+
+  const toggleFriendSelection = (friend) => {
+    setSelectedFriends((prevSelectedFriends) => {
+      if (prevSelectedFriends.includes(friend)) {
+        return prevSelectedFriends.filter(f => f !== friend);
+      } else {
+        return [...prevSelectedFriends, friend];
+      }
+    });
+  };
+
+  const renderFriendItem = ({ item }) => {
+    const isSelected = selectedFriends.includes(item);
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.friendItem, isSelected && styles.selectedFriendItem]}
+        onPress={() => toggleFriendSelection(item)}
+      >
+        <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
+        <Text style={styles.friendName}>{item.username}</Text>
+        {isSelected && <Icon name="check" size={20} color="green" />}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -94,6 +136,17 @@ const CreateGroupScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.pickerLabel}>Invite Friends:</Text>
+        <FlatList
+          data={friends}
+          keyExtractor={item => item.id}
+          renderItem={renderFriendItem}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
+        />
 
         <View style={styles.divider} />
 
@@ -198,6 +251,36 @@ const styles = StyleSheet.create({
     width: 12,
     borderRadius: 6,
     backgroundColor: 'white',
+  },
+  friendsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#232323',
+    backgroundColor: 'black',
+    marginBottom: 10,
+    marginRight: 10,
+  },
+  selectedFriendItem: {
+    borderColor: '#424242',
+  },
+  friendName: {
+    color: 'white',
+    fontSize: 16,
+  },
+  profilePic: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
   },
   footerCard: {
     flexDirection: 'row',

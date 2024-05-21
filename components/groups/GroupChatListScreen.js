@@ -7,16 +7,11 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 
-const lifeCoaches = [
-  { name: 'Steve Jobs', avatar: 'https://placekitten.com/200/200' },
-  { name: 'Darth Vader', avatar: 'https://placekitten.com/201/201' },
-  { name: 'Peter Griffin', avatar: 'https://placekitten.com/202/202' },
-];
-
 const GroupChatListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allChats, setAllChats] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
+  const [ownedChatbots, setOwnedChatbots] = useState([]);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -25,6 +20,7 @@ const GroupChatListScreen = () => {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         setUserProfile(userSnap.data());
+        setOwnedChatbots(userSnap.data().items?.chatbot || []);
       }
     };
 
@@ -129,21 +125,6 @@ const GroupChatListScreen = () => {
     );
   };
 
-  const renderAIChatItem = (coach) => (
-    <TouchableOpacity onPress={() => navigation.navigate('AIChatScreen', { coach })}>
-      <View style={styles.chatContainer}>
-        <Image style={styles.avatar} source={{ uri: coach.avatar }} />
-        <View style={styles.chatInfo}>
-          <Text style={styles.chatName}>{coach.name} Life Coach</Text>
-          <Text style={styles.lastMessage}>Chat with our {coach.name} AI</Text>
-        </View>
-        <View style={styles.chatActions}>
-          <Icon name="ra" size={24} color="white" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
   if (!userProfile) {
     return <View style={styles.loading}><Text>Loading...</Text></View>;
   }
@@ -159,16 +140,14 @@ const GroupChatListScreen = () => {
           onChangeText={handleSearch}
         />
       </View>
+      <TouchableOpacity style={styles.marketplaceButton} onPress={() => navigation.navigate('MarketplaceScreen')}>
+        <Text style={styles.marketplaceButtonText}>Marketplace</Text>
+      </TouchableOpacity>
       <FlatList
         data={allChats}
         keyExtractor={item => item.id}
         renderItem={renderChatItem}
         contentContainerStyle={styles.chatList}
-        ListHeaderComponent={() => (
-          <>
-            {lifeCoaches.map(coach => renderAIChatItem(coach))}
-          </>
-        )}
       />
     </KeyboardAvoidingView>
   );
@@ -202,6 +181,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
+  },
+  marketplaceButton: {
+    backgroundColor: '#1a73e8',
+    borderRadius: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: 'center',
+    marginVertical: 10,
+  },
+  marketplaceButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   chatList: {
     paddingBottom: 10,

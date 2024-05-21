@@ -12,10 +12,26 @@ const ForYouFeedScreen = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profilePicture, setProfilePicture] = useState('');
 
   useEffect(() => {
     loadPosts();
+    fetchProfilePicture();
   }, []);
+
+  const fetchProfilePicture = async () => {
+    try {
+      const userProfile = await AsyncStorage.getItem('userProfile');
+      if (userProfile) {
+        const userProfileData = JSON.parse(userProfile);
+        setProfilePicture(userProfileData.profilePicture);
+      }
+    } catch (error) {
+      console.error("Error fetching profile picture:", error);
+    }
+  };
+
 
   const loadPosts = async () => {
     try {
@@ -29,6 +45,20 @@ const ForYouFeedScreen = () => {
     } catch (error) {
       console.error("Error loading posts:", error);
       setLoading(false);
+    }
+  };
+
+  const handleCamera = async () => {
+    if ( true) {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+      if (!result.cancelled) {
+        navigation.navigate('Post', { image: result.assets[0].uri });
+      }
     }
   };
 
@@ -176,7 +206,7 @@ const ForYouFeedScreen = () => {
       </View>
       <View style={styles.navbarWrapper}>
         <BlurView intensity={70} style={styles.navbar}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.replace('Groups')}>
+          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Groups')}>
             <MaterialIcons name="dashboard" size={24} color="white" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('NotificationsScreen')}>
@@ -185,20 +215,20 @@ const ForYouFeedScreen = () => {
               <View style={styles.notificationDot} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navCenterItem} onPress={() => navigation.navigate('Camera')}>
+          <TouchableOpacity style={styles.navCenterItem} onPress={handleCamera}>
             <View style={styles.plusButton}>
               <Text style={styles.plusText}>+</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('GroupChat')}>
+          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('GroupChatList')}>
             <View>
               <MaterialCommunityIcons name="chat" size={24} color="white" />
               <View style={styles.notificationDot} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}>
             <Image 
-              source={{ uri: 'https://example.com/profile.jpg' }} 
+              source={{ uri: profilePicture }} 
               style={styles.profileImage} 
             />
           </TouchableOpacity>

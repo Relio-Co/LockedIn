@@ -8,8 +8,8 @@ import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arra
 import RNPickerSelect from 'react-native-picker-select';
 
 function PostScreen({ route }) {
-  const { groupId } = route.params || {};
-  const [image, setImage] = useState(null);
+  const { groupId, image: initialImage } = route.params || {};
+  const [image, setImage] = useState(initialImage || null);
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [groups, setGroups] = useState([]);
@@ -35,12 +35,12 @@ function PostScreen({ route }) {
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
-  
+
     if (!permissionResult.granted || !cameraPermissionResult.granted) {
       Alert.alert("Permission required", "You need to allow access to your photos and camera to upload an image.");
       return;
     }
-  
+
     Alert.alert(
       "Select Image",
       "Choose an option",
@@ -54,12 +54,12 @@ function PostScreen({ route }) {
               aspect: [4, 3],
               quality: 1,
             });
-  
+
             if (result.cancelled) {
               setImage(null);
               return;
             }
-  
+
             const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
             setImage(manipResult.uri);
           }
@@ -72,12 +72,12 @@ function PostScreen({ route }) {
               aspect: [4, 3],
               quality: 1,
             });
-  
+
             if (result.cancelled) {
               setImage(null);
               return;
             }
-  
+
             const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
             setImage(manipResult.uri);
           }

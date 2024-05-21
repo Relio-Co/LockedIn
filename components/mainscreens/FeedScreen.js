@@ -14,15 +14,16 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { BlurView } from 'expo-blur';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, getDocs, orderBy, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from "expo-image";
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
-const numRows = 30;
-const numCols = 31;
-const pageSize = 40;
+const numRows = 15;
+const numCols = 14;
+const pageSize = 400;
 
 const blurhash =
   "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
@@ -33,9 +34,11 @@ const FeedScreen = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profilePicture, setProfilePicture] = useState('');
 
   useEffect(() => {
     loadPosts();
+    fetchProfilePicture();
   }, []);
 
   const fetchInitialPosts = async () => {
@@ -70,6 +73,18 @@ const FeedScreen = () => {
       console.error("Error loading posts:", error);
     }
     setLoading(false);
+  };
+
+  const fetchProfilePicture = async () => {
+    try {
+      const userProfile = await AsyncStorage.getItem('userProfile');
+      if (userProfile) {
+        const userProfileData = JSON.parse(userProfile);
+        setProfilePicture(userProfileData.profilePicture);
+      }
+    } catch (error) {
+      console.error("Error fetching profile picture:", error);
+    }
   };
 
   const handleRefresh = async () => {
@@ -107,6 +122,20 @@ const FeedScreen = () => {
         {loading && <ActivityIndicator size="large" color="#00b4d8" />}
       </View>
     );
+  };
+
+  const handleCamera = async () => {
+    if ( true) {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+      if (!result.cancelled) {
+        navigation.navigate('Post', { image: result.assets[0].uri });
+      }
+    }
   };
 
   return (
@@ -159,7 +188,7 @@ const FeedScreen = () => {
               <View style={styles.notificationDot} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navCenterItem} onPress={() => navigation.navigate('Camera')}>
+          <TouchableOpacity style={styles.navCenterItem} onPress={handleCamera}>
             <View style={styles.plusButton}>
               <Text style={styles.plusText}>+</Text>
             </View>
@@ -172,7 +201,7 @@ const FeedScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}>
             <Image 
-              source={{ uri: 'https://example.com/profile.jpg' }} 
+              source={{ uri: profilePicture }} 
               style={styles.profileImage} 
             />
           </TouchableOpacity>
@@ -185,34 +214,34 @@ const FeedScreen = () => {
         visible={profileModalVisible}
         onRequestClose={() => setProfileModalVisible(!profileModalVisible)}
       >
-        <View style={styles.modalContainer}>
+        <TouchableOpacity style={styles.modalContainer} onPress={() => setProfileModalVisible(false)}>
           <View style={styles.modalView}>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(!profileModalVisible);
+              setProfileModalVisible(false);
               navigation.navigate('FriendsScreen');
             }}>
               <Text style={styles.modalButtonText}>Add Friend</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(!profileModalVisible);
+              setProfileModalVisible(false);
               navigation.navigate('ViewProfile');
             }}>
               <Text style={styles.modalButtonText}>View Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(!profileModalVisible);
+              setProfileModalVisible(false);
               navigation.navigate('AddHabit');
             }}>
               <Text style={styles.modalButtonText}>Add Habit</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(!profileModalVisible);
+              setProfileModalVisible(false);
               navigation.navigate('Settings');
             }}>
               <Text style={styles.modalButtonText}>Settings</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

@@ -9,7 +9,7 @@ services:
       - /app/node_modules
     ports:
       - '8081:8081'
-    command: sh -c 'npm install && npm start'
+    command: sh -c 'npm install && npx expo start --no-dev --minify'
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 

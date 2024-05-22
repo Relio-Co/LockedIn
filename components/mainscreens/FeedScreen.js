@@ -44,14 +44,29 @@ const FeedScreen = () => {
   const fetchInitialPosts = async () => {
     setLoading(true);
     try {
-      console.log("firebasehit");
       const postsQuery = query(
         collection(db, "posts"),
         orderBy("createdAt", "desc"),
         limit(pageSize)
       );
       const postsSnap = await getDocs(postsQuery);
-      const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const postsData = await Promise.all(postsSnap.docs.map(async (docSnapshot) => {
+        const postData = docSnapshot.data();
+        const userId = postData.userId;
+        const groupId = postData.groupId;
+
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const groupDoc = await getDoc(doc(db, 'groups', groupId));
+        const streakDoc = await getDoc(doc(db, `users/${userId}/groupStreaks/${groupId}`));
+
+        return {
+          id: docSnapshot.id,
+          ...postData,
+          username: userDoc.exists() ? userDoc.data().username : 'Unknown',
+          group: groupDoc.exists() ? groupDoc.data().groupName : 'Unknown Group',
+          streak: streakDoc.exists() ? streakDoc.data().streakScore : 0,
+        };
+      }));
       setPosts(postsData);
       await AsyncStorage.setItem('posts', JSON.stringify(postsData));
     } catch (error) {
@@ -94,7 +109,7 @@ const FeedScreen = () => {
   };
 
   const renderPostItem = (item, index) => (
-    <TouchableOpacity key={`${item.id}-${index}`} onPress={() => navigation.navigate('PostDetail', { postId: item.id })}>
+    <TouchableOpacity key={`${item.id}-${index}`} onPress={() => navigation.navigate('PostDetail', { postId: item.id })} style={styles.postItem}>
       <Image
         style={styles.postImage}
         source={{ uri: item.imageUrl }}
@@ -102,6 +117,15 @@ const FeedScreen = () => {
         contentFit="cover"
         transition={1000}
       />
+      <View style={styles.postDetails}>
+        <Text style={styles.posterName}>
+          <Ionicons name="flame-outline" size={16} color="orange" /> {item.streak} - {item.username}
+        </Text>
+        <Text style={styles.postCaption}>{item.caption}</Text>
+        <View style={styles.groupPill}>
+          <Text style={styles.groupPillText}>{item.group}</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -125,7 +149,7 @@ const FeedScreen = () => {
   };
 
   const handleCamera = async () => {
-    if ( true) {
+    if (true) {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -266,11 +290,49 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
-  postImage: {
+  postItem: {
     width: 130 * 1.9,
     height: 200 * 1.9,
-    borderRadius: 8,
     margin: 5,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  postDetails: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  posterName: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  postCaption: {
+    color: 'white',
+    marginVertical: 5,
+  },
+  streakText: {
+    color: 'orange',
+  },
+  groupPill: {
+    backgroundColor: 'gray',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
+    marginTop: 5,
+  },
+  groupPillText: {
+    color: 'white',
+    fontSize: 12,
   },
   topPillsContainer: {
     flexDirection: 'row',

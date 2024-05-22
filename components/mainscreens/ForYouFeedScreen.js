@@ -13,7 +13,6 @@ const ForYouFeedScreen = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profilePicture, setProfilePicture] = useState('');
 
   useEffect(() => {
@@ -33,7 +32,6 @@ const ForYouFeedScreen = () => {
     }
   };
 
-
   const loadPosts = async () => {
     try {
       const cachedGroups = await AsyncStorage.getItem('groups');
@@ -50,22 +48,19 @@ const ForYouFeedScreen = () => {
   };
 
   const handleCamera = async () => {
-    if ( true) {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-      if (!result.cancelled) {
-        navigation.navigate('Post', { image: result.assets[0].uri });
-      }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+    if (!result.cancelled) {
+      navigation.navigate('Post', { image: result.assets[0].uri });
     }
   };
 
   const fetchGroupsAndPosts = async () => {
     try {
-        console.log("firebasehit");
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const docSnap = await getDoc(userRef);
       const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
@@ -80,13 +75,25 @@ const ForYouFeedScreen = () => {
             postIds.map(async (postId) => {
               const postRef = doc(db, 'posts', postId);
               const postSnap = await getDoc(postRef);
+              const postData = postSnap.exists() ? postSnap.data() : null;
               return {
-                ...postSnap.data(),
+                ...postData,
+                createdAt: postData?.createdAt ? postData.createdAt.toDate() : null,
                 groupName: groupData?.name || 'Unknown',
                 id: postSnap.id,
               };
             })
           );
+
+          const today = new Date().toISOString().split('T')[0];
+          const latestPosts = postDocs
+            .filter(post => post.createdAt && post.createdAt.toISOString().split('T')[0] === today)
+            .reduce((acc, post) => {
+              if (!acc[post.createdBy] || acc[post.createdBy].createdAt < post.createdAt) {
+                acc[post.createdBy] = post;
+              }
+              return acc;
+            }, {});
 
           const memberIds = groupData?.members || [];
           const userProfiles = memberIds.length
@@ -103,14 +110,27 @@ const ForYouFeedScreen = () => {
           return {
             groupId,
             name: groupData?.name || 'Unknown',
-            posts: postDocs,
+            posts: Object.values(latestPosts),
             userProfiles,
+            currentStreak: groupData?.streak || 0,
           };
         })
       );
 
+      groupPosts.sort((a, b) => b.currentStreak - a.currentStreak);
+
+      // Fetch existing data from AsyncStorage to compare
+      const cachedGroups = await AsyncStorage.getItem('groups');
+      if (cachedGroups) {
+        const cachedGroupsData = JSON.parse(cachedGroups);
+        if (JSON.stringify(groupPosts) !== JSON.stringify(cachedGroupsData)) {
+          await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
+        }
+      } else {
+        await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
+      }
+
       setGroups(groupPosts);
-      await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
       setLoading(false);
     } catch (error) {
       console.error('Error fetching groups and posts:', error);
@@ -131,13 +151,13 @@ const ForYouFeedScreen = () => {
   };
 
   const renderGroupItem = ({ item }) => (
-    <View style={styles.groupCard}>
+    <View style={[styles.groupCard]}>
       <Text style={styles.groupName} onPress={() => handleGroupPress(item.groupId)}>#{item.name}</Text>
+      <Text style={styles.groupDetails}>Current Streak: {item.currentStreak} days</Text>
       <View style={styles.postGrid}>
         {item.userProfiles?.map((profile) => {
           const post = item.posts?.find(
-            (post) =>
-              post.createdBy === profile.id
+            (post) => post.createdBy === profile.id
           );
           return (
             <View key={profile.id} style={styles.postTile}>
@@ -187,7 +207,9 @@ const ForYouFeedScreen = () => {
       <View style={styles.topPillsContainer}>
         <View style={styles.pillWrapper}>
           <BlurView intensity={50} style={styles.pill}>
+          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
             <Ionicons name="search" size={24} color="white" />
+          </TouchableOpacity>
           </BlurView>
         </View>
         <View style={styles.pillWrapper}>
@@ -373,6 +395,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#ccc',
+  },
+  groupDetails: {
+    fontSize: 14,
+    color: '#999',
   },
   postGrid: {
     flexDirection: 'row',

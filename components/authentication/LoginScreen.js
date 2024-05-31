@@ -13,7 +13,7 @@ import {
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { auth, db } from '../../firebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -65,6 +65,20 @@ const LoginScreen = () => {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address to reset your password.');
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert('Password Reset', 'A password reset link has been sent to your email.');
+    } catch (error) {
+      Alert.alert('Password Reset Failed', error.message);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
       <View style={styles.container}>
@@ -94,24 +108,26 @@ const LoginScreen = () => {
             <Feather name={showPassword ? 'eye' : 'eye-off'} size={24} color="#ccc" />
           </TouchableOpacity>
         </View>
-        <Text style={styles.forgotPassword}>Forgot password?</Text>
+        <TouchableOpacity onPress={handlePasswordReset}>
+          <Text style={styles.forgotPassword}>Forgot password?</Text>
+        </TouchableOpacity>
         <TouchableOpacity
-            onPress={() => {
-              handleLogin();
-              fadeIn();
-            }}
-            activeOpacity={0.7}
-            onPressIn={fadeOut}
-            onPressOut={fadeIn}
-          >
-        <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
-          
+          onPress={() => {
+            handleLogin();
+            fadeIn();
+          }}
+          activeOpacity={0.7}
+          onPressIn={fadeOut}
+          onPressOut={fadeIn}
+        >
+          <Animated.View style={[styles.button, { opacity: fadeAnim }]}>
             <Text style={styles.buttonText}>Login</Text>
-          
-        </Animated.View>
+          </Animated.View>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.replace('CreateAccount')} style={styles.switchButton}>
-          <Text style={styles.switchText}>New user? <Text style={{ color: '#0077b6' }}>Sign Up</Text></Text>
+          <Text style={styles.switchText}>
+            New user? <Text style={{ color: '#0077b6' }}>Sign Up</Text>
+          </Text>
         </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>

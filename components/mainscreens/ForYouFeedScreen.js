@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Platform } from 'react-native';
+import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Platform, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { db, auth } from '../../firebaseConfig';
@@ -12,8 +12,10 @@ import * as ImagePicker from 'expo-image-picker';
 const ForYouFeedScreen = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const [profilePicture, setProfilePicture] = useState('');
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
   useEffect(() => {
     loadPosts();
@@ -47,18 +49,6 @@ const ForYouFeedScreen = () => {
     }
   };
 
-  const handleCamera = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.cancelled) {
-      navigation.navigate('Post', { image: result.assets[0].uri });
-    }
-  };
-
   const fetchGroupsAndPosts = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -71,23 +61,27 @@ const ForYouFeedScreen = () => {
           const groupSnap = await getDoc(groupRef);
           const groupData = groupSnap.exists() ? groupSnap.data() : null;
           const postIds = groupData?.posts || [];
+          const today = new Date().toISOString().split('T')[0];
+
           const postDocs = await Promise.all(
             postIds.map(async (postId) => {
               const postRef = doc(db, 'posts', postId);
               const postSnap = await getDoc(postRef);
               const postData = postSnap.exists() ? postSnap.data() : null;
-              return {
-                ...postData,
-                createdAt: postData?.createdAt ? postData.createdAt.toDate() : null,
-                groupName: groupData?.name || 'Unknown',
-                id: postSnap.id,
-              };
+              if (postData?.createdAt?.toDate().toISOString().split('T')[0] === today) {
+                return {
+                  ...postData,
+                  createdAt: postData.createdAt.toDate(),
+                  groupName: groupData?.name || 'Unknown',
+                  id: postSnap.id,
+                };
+              }
+              return null;
             })
           );
 
-          const today = new Date().toISOString().split('T')[0];
           const latestPosts = postDocs
-            .filter(post => post.createdAt && post.createdAt.toISOString().split('T')[0] === today)
+            .filter(post => post !== null)
             .reduce((acc, post) => {
               if (!acc[post.createdBy] || acc[post.createdBy].createdAt < post.createdAt) {
                 acc[post.createdBy] = post;
@@ -119,17 +113,7 @@ const ForYouFeedScreen = () => {
 
       groupPosts.sort((a, b) => b.currentStreak - a.currentStreak);
 
-      // Fetch existing data from AsyncStorage to compare
-      const cachedGroups = await AsyncStorage.getItem('groups');
-      if (cachedGroups) {
-        const cachedGroupsData = JSON.parse(cachedGroups);
-        if (JSON.stringify(groupPosts) !== JSON.stringify(cachedGroupsData)) {
-          await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
-        }
-      } else {
-        await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
-      }
-
+      await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
       setGroups(groupPosts);
       setLoading(false);
     } catch (error) {
@@ -150,8 +134,26 @@ const ForYouFeedScreen = () => {
     navigation.navigate('GroupDetails', { groupId });
   };
 
+  const handleCamera = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+    if (!result.cancelled) {
+      navigation.navigate('Post', { image: result.uri });
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchGroupsAndPosts();
+    setRefreshing(false);
+  };
+
   const renderGroupItem = ({ item }) => (
-    <View style={[styles.groupCard]}>
+    <View style={styles.groupCard}>
       <Text style={styles.groupName} onPress={() => handleGroupPress(item.groupId)}>#{item.name}</Text>
       <Text style={styles.groupDetails}>Current Streak: {item.currentStreak} days</Text>
       <View style={styles.postGrid}>
@@ -166,7 +168,7 @@ const ForYouFeedScreen = () => {
                   <Image
                     style={styles.postImage}
                     source={{ uri: post.imageUrl }}
-                    placeholder={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...'}} // Replace with actual placeholder if needed
+                    placeholder={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...' }} // Replace with actual placeholder if needed
                     contentFit="cover"
                     transition={1000}
                   />
@@ -202,19 +204,25 @@ const ForYouFeedScreen = () => {
           keyExtractor={(item) => item.groupId}
           renderItem={renderGroupItem}
           contentContainerStyle={styles.flatListContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+            />
+          }
         />
       )}
       <View style={styles.topPillsContainer}>
         <View style={styles.pillWrapper}>
           <BlurView intensity={50} style={styles.pill}>
-          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-            <Ionicons name="search" size={24} color="white" />
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+              <Ionicons name="search" size={24} color="white" />
+            </TouchableOpacity>
           </BlurView>
         </View>
         <View style={styles.pillWrapper}>
           <BlurView intensity={50} style={styles.pill}>
-          <TouchableOpacity onPress={() => navigation.replace('Feed')}>
+            <TouchableOpacity onPress={() => navigation.replace('Feed')}>
               <Text style={styles.pillText}>Explore</Text>
             </TouchableOpacity>
           </BlurView>
@@ -266,22 +274,58 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
-  scrollView: {
-    flex: 1,
+  flatListContainer: {
+    paddingBottom: 100, // To avoid overlapping with the navigation bar
   },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    margin: 10,
+  groupCard: {
     padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#1c1c1e',
+    margin: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  groupName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#ccc',
+  },
+  groupDetails: {
+    fontSize: 14,
+    color: '#999',
+  },
+  postGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  cardImage: {
-    width:  4 - 20,
-    height: 4 - 20,
-    marginBottom: 10,
+  postTile: {
+    width: '25%',
+    aspectRatio: 1,
+    padding: 2,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: '#ccc',
+  },
+  noProfilePic: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noProfilePicText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   topPillsContainer: {
     flexDirection: 'row',
@@ -363,13 +407,6 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: 'black',
   },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'white',
-  },
   notificationDot: {
     position: 'absolute',
     top: -5,
@@ -378,60 +415,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: 'red',
-  },
-  groupCard: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#1c1c1e',
-    margin: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  groupName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#ccc',
-  },
-  groupDetails: {
-    fontSize: 14,
-    color: '#999',
-  },
-  postGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  postTile: {
-    width: '25%',
-    aspectRatio: 1,
-    padding: 2,
-  },
-  postImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 5,
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-    backgroundColor: '#ccc',
-  },
-  noProfilePic: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noProfilePicText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  flatListContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
   },
 });
 

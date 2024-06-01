@@ -21,8 +21,6 @@ import { Image } from "expo-image";
 import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
-const numRows = 15;
-const numCols = 14;
 const pageSize = 400;
 
 const blurhash =
@@ -50,10 +48,15 @@ const FeedScreen = () => {
         limit(pageSize)
       );
       const postsSnap = await getDocs(postsQuery);
+
+      console.log("Fetched posts:", postsSnap.docs.length);
+
       const postsData = await Promise.all(postsSnap.docs.map(async (docSnapshot) => {
         const postData = docSnapshot.data();
-        const userId = postData.userId;
+        const userId = postData.createdBy;
         const groupId = postData.groupId;
+
+        console.log("Processing post:", postData);
 
         const userDoc = await getDoc(doc(db, 'users', userId));
         const groupDoc = await getDoc(doc(db, 'groups', groupId));
@@ -63,10 +66,13 @@ const FeedScreen = () => {
           id: docSnapshot.id,
           ...postData,
           username: userDoc.exists() ? userDoc.data().username : 'Unknown',
-          group: groupDoc.exists() ? groupDoc.data().groupName : 'Unknown Group',
+          group: groupDoc.exists() ? groupDoc.data().name : 'Unknown Group',
           streak: streakDoc.exists() ? streakDoc.data().streakScore : 0,
         };
       }));
+
+      console.log("Processed posts data:", postsData);
+
       setPosts(postsData);
       await AsyncStorage.setItem('posts', JSON.stringify(postsData));
     } catch (error) {
@@ -130,35 +136,23 @@ const FeedScreen = () => {
   );
 
   const renderPosts = () => {
-    if (posts.length === 0) return null;
-
-    const repeatedPosts = [];
-    const totalPostsNeeded = numRows * numCols;
-
-    for (let i = 0; i < totalPostsNeeded; i++) {
-      const post = posts[i % posts.length];
-      repeatedPosts.push(renderPostItem(post, i));
-    }
-
     return (
       <View style={styles.postsContainer}>
-        {repeatedPosts}
+        {posts.map((item, index) => renderPostItem(item, index))}
         {loading && <ActivityIndicator size="large" color="#00b4d8" />}
       </View>
     );
   };
 
   const handleCamera = async () => {
-    if (true) {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-      if (!result.cancelled) {
-        navigation.navigate('Post', { image: result.assets[0].uri });
-      }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+    if (!result.cancelled) {
+      navigation.navigate('Post', { image: result.assets[0].uri });
     }
   };
 
@@ -282,8 +276,8 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    width: width * numCols,
-    height: height * numRows,
+    width: width * 2,
+    height: height * 2,
   },
   postsContainer: {
     flexDirection: 'row',
@@ -291,8 +285,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   postItem: {
-    width: 130 * 1.9,
-    height: 200 * 1.9,
+    width: (width / 2) - 10,
+    height: (height / 2) - 10,
     margin: 5,
     borderRadius: 8,
     overflow: 'hidden',

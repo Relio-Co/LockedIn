@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
+
+const { height, width } = Dimensions.get('window');
 
 const GroupFeedScreen = ({ route }) => {
   const { groupId } = route.params;
@@ -77,9 +79,24 @@ const GroupFeedScreen = ({ route }) => {
   const isAdmin = group && group.admins && group.admins.includes(auth.currentUser.uid);
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <Text style={styles.header}>{group ? group.name : 'Loading...'}</Text>
-      <Text style={styles.streak}>Group Streak: {group ? group.streak : 0} <Icon name="bolt" size={24} color="orange" /></Text>
+    <View style={styles.container}>
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.postContainer}>
+            <Image source={{ uri: item.imageUrl }} style={styles.image} contentFit="cover" />
+            <View style={styles.overlay}>
+              <Text style={styles.postTitle}>{item.title || 'No Title'}</Text>
+              <Text style={styles.postContent}>{item.content}</Text>
+              <Text style={styles.postedBy}>Posted by: {item.createdByUsername}</Text>
+            </View>
+          </View>
+        )}
+        pagingEnabled
+        horizontal={false}
+        showsVerticalScrollIndicator={false}
+      />
       <View style={styles.iconBar}>
         <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { groupId })}>
           <Icon name="trophy" size={24} color="gold" />
@@ -102,97 +119,59 @@ const GroupFeedScreen = ({ route }) => {
           <Icon name="sign-out" size={24} color="red" />
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={posts}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.postContainer} onPress={() => navigation.navigate('PostDetail', { postId: item.id, groupId })}>
-            <Text style={styles.postTitle}>{item.title || 'No Title'}</Text>
-            {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.image} accessibilityLabel="Post Image" />}
-            <Text style={styles.postContent}>{item.content}</Text>
-            <View style={styles.postFooter}>
-              <Text style={styles.postedBy}>Posted by: {item.createdByUsername}</Text>
-              <View style={styles.iconRow}>
-                <Icon name="thumbs-up" size={20} color="white" style={styles.icon} />
-                <Icon name="comment" size={20} color="white" style={styles.icon} />
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#000',
-    paddingTop: 50,
   },
-  header: {
+  postContainer: {
+    height: height,
+    width: width,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    height: height,
+    width: width,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  postTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  streak: {
-    color: 'orange',
-    fontSize: 18,
-    marginBottom: 20,
-    textAlign: 'center'
-  },
-  iconBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  postContainer: {
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    backgroundColor: '#1a1a1a',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 5,
-  },
-  postTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   postContent: {
     fontSize: 16,
     color: 'white',
-    marginBottom: 5,
-  },
-  image: {
-    width: '100%',
-    height: 200,
-    borderRadius: 10,
     marginBottom: 10,
-  },
-  postFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   postedBy: {
     fontSize: 14,
     fontStyle: 'italic',
     color: 'grey',
   },
-  iconRow: {
-    flexDirection: 'row',
+  iconBar: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 10,
+    flexDirection: 'column',
+    alignItems: 'center',
   },
   icon: {
-    marginLeft: 10,
-  }
+    margin: 10,
+  },
 });
 
 export default GroupFeedScreen;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -23,6 +23,16 @@ const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
   const [fadeAnim] = useState(new Animated.Value(1));
+
+  useEffect(() => {
+    const checkUserLoggedIn = async () => {
+      const userProfile = await AsyncStorage.getItem('userProfile');
+      if (userProfile) {
+        navigation.replace('Feed');
+      }
+    };
+    checkUserLoggedIn();
+  }, []);
 
   const fadeIn = () => {
     Animated.timing(fadeAnim, {

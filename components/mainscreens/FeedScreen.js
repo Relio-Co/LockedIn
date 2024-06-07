@@ -10,6 +10,7 @@ import {
   Platform,
   RefreshControl,
   Modal,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { BlurView } from 'expo-blur';
@@ -144,14 +145,29 @@ const FeedScreen = () => {
     );
   };
 
+  const requestCameraPermissions = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera permission is required to take a photo.');
+      return false;
+    }
+    return true;
+  };
+
   const handleCamera = async () => {
+    const hasPermission = await requestCameraPermissions();
+    if (!hasPermission) {
+      return;
+    }
+
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
-    if (!result.cancelled) {
+
+    if (!result.canceled) {
       navigation.navigate('Post', { image: result.assets[0].uri });
     }
   };

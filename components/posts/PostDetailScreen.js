@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, Dimensions, Platform, Modal, TextInput, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { db, auth, storage } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, getDocs, addDoc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
@@ -7,12 +7,15 @@ import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const blurhash =
-  '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
+const { height, width } = Dimensions.get('window');
 
-function PostDetailScreen({ route }) {
+const blurhash =
+  '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
+
+const PostDetailScreen = ({ route }) => {
   const { postId } = route.params;
-  const [post, setPost] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -22,63 +25,82 @@ function PostDetailScreen({ route }) {
   const navigation = useNavigation();
 
   useEffect(() => {
-    async function fetchPostAndComments() {
+    async function fetchPosts() {
       try {
-        const postRef = doc(db, 'posts', postId);
-        const postSnap = await getDoc(postRef);
+        const postsQuery = query(collection(db, 'posts'));
+        const postsSnapshot = await getDocs(postsQuery);
 
-        if (postSnap.exists()) {
-          const postData = {
-            id: postSnap.id,
-            ...postSnap.data(),
-            createdAt: postSnap.data().createdAt.toDate(),
-          };
+        const postsData = await Promise.all(
+          postsSnapshot.docs.map(async (docSnapshot) => {
+            const postData = {
+              id: docSnapshot.id,
+              ...docSnapshot.data(),
+              createdAt: docSnapshot.data().createdAt.toDate(),
+            };
 
-          const userRef = doc(db, 'users', postData.createdBy);
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            postData.username = userSnap.data().username;
-            postData.streakScore = userSnap.data().streakScore;
-            postData.profilePictureUrl = userSnap.data().profilePicture;
-          }
+            const userRef = doc(db, 'users', postData.createdBy);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              postData.username = userSnap.data().username;
+              postData.streakScore = userSnap.data().streakScore;
+              postData.profilePictureUrl = userSnap.data().profilePicture;
+            }
 
-          setPost(postData);
+            const groupRef = doc(db, 'groups', postData.groupId);
+            const groupSnap = await getDoc(groupRef);
+            if (groupSnap.exists()) {
+              postData.groupName = groupSnap.data().name;
+            }
 
-          const commentsQuery = query(collection(db, `posts/${postId}/comments`));
-          const commentsSnapshot = await getDocs(commentsQuery);
-          const commentsData = await Promise.all(
-            commentsSnapshot.docs.map(async (commentDoc) => {
-              const commentData = {
-                id: commentDoc.id,
-                ...commentDoc.data(),
-                createdAt: commentDoc.data().createdAt.toDate(),
-              };
+            return postData;
+          })
+        );
 
-              const commentUserRef = doc(db, 'users', commentData.userId);
-              const commentUserSnap = await getDoc(commentUserRef);
-              if (commentUserSnap.exists()) {
-                commentData.username = commentUserSnap.data().username;
-                commentData.profilePictureUrl = commentUserSnap.data().profilePicture;
-              }
-              return commentData;
-            })
-          );
+        setPosts(postsData);
 
-          setComments(commentsData);
-        } else {
-          console.log("No such document!");
-        }
+        const initialIndex = postsData.findIndex(post => post.id === postId);
+        setCurrentIndex(initialIndex !== -1 ? initialIndex : 0);
       } catch (error) {
-        console.error("Error fetching post and comments:", error);
+        console.error('Error fetching posts:', error);
       }
     }
 
-    fetchPostAndComments();
+    fetchPosts();
   }, [postId]);
+
+  useEffect(() => {
+    async function fetchComments() {
+      if (posts[currentIndex]) {
+        const commentsQuery = query(collection(db, `posts/${posts[currentIndex].id}/comments`));
+        const commentsSnapshot = await getDocs(commentsQuery);
+        const commentsData = await Promise.all(
+          commentsSnapshot.docs.map(async (commentDoc) => {
+            const commentData = {
+              id: commentDoc.id,
+              ...commentDoc.data(),
+              createdAt: commentDoc.data().createdAt.toDate(),
+            };
+
+            const commentUserRef = doc(db, 'users', commentData.userId);
+            const commentUserSnap = await getDoc(commentUserRef);
+            if (commentUserSnap.exists()) {
+              commentData.username = commentUserSnap.data().username;
+              commentData.profilePictureUrl = commentUserSnap.data().profilePicture;
+            }
+            return commentData;
+          })
+        );
+
+        setComments(commentsData);
+      }
+    }
+
+    fetchComments();
+  }, [currentIndex, posts]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
-      Alert.alert("Error", "Please enter a comment before posting.");
+      Alert.alert('Error', 'Please enter a comment before posting.');
       return;
     }
 
@@ -90,7 +112,7 @@ function PostDetailScreen({ route }) {
     };
 
     try {
-      const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
+      const newCommentRef = await addDoc(collection(db, `posts/${posts[currentIndex].id}/comments`), commentData);
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -102,75 +124,75 @@ function PostDetailScreen({ route }) {
       setNewComment('');
       Keyboard.dismiss();
     } catch (error) {
-      console.error("Error adding comment:", error);
+      console.error('Error adding comment:', error);
     }
   };
 
   const handleDeletePost = async () => {
     Alert.alert(
-      "Delete Post",
-      "Are you sure you want to delete this post?",
+      'Delete Post',
+      'Are you sure you want to delete this post?',
       [
         {
-          text: "Cancel",
-          style: "cancel"
+          text: 'Cancel',
+          style: 'cancel',
         },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
-              const postRef = doc(db, 'posts', postId);
+              const postRef = doc(db, 'posts', posts[currentIndex].id);
               await deleteDoc(postRef);
 
-              const groupRef = doc(db, 'groups', post.groupId);
+              const groupRef = doc(db, 'groups', posts[currentIndex].groupId);
               await updateDoc(groupRef, {
-                posts: arrayRemove(postId)
+                posts: arrayRemove(posts[currentIndex].id),
               });
 
-              const userRef = doc(db, 'users', post.createdBy);
+              const userRef = doc(db, 'users', posts[currentIndex].createdBy);
               await updateDoc(userRef, {
-                posts: arrayRemove(postId)
+                posts: arrayRemove(posts[currentIndex].id),
               });
 
-              const imageRef = ref(storage, post.imageUrl);
+              const imageRef = ref(storage, posts[currentIndex].imageUrl);
               await deleteObject(imageRef);
 
               navigation.goBack();
             } catch (error) {
-              console.error("Error deleting post:", error);
-              Alert.alert("Error", "Failed to delete post. Please try again.");
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   const handleDeleteComment = async (commentId) => {
     Alert.alert(
-      "Delete Comment",
-      "Are you sure you want to delete this comment?",
+      'Delete Comment',
+      'Are you sure you want to delete this comment?',
       [
         {
-          text: "Cancel",
-          style: "cancel"
+          text: 'Cancel',
+          style: 'cancel',
         },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
-              const commentRef = doc(db, `posts/${postId}/comments`, commentId);
+              const commentRef = doc(db, `posts/${posts[currentIndex].id}/comments`, commentId);
               await deleteDoc(commentRef);
 
               setComments(comments.filter((comment) => comment.id !== commentId));
             } catch (error) {
-              console.error("Error deleting comment:", error);
-              Alert.alert("Error", "Failed to delete comment. Please try again.");
+              console.error('Error deleting comment:', error);
+              Alert.alert('Error', 'Failed to delete comment. Please try again.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -187,7 +209,7 @@ function PostDetailScreen({ route }) {
 
   const handleSubmitReport = async () => {
     if (!reportType.trim() || !reportDetails.trim()) {
-      Alert.alert("Error", "Please fill in all fields before submitting.");
+      Alert.alert('Error', 'Please fill in all fields before submitting.');
       return;
     }
 
@@ -200,12 +222,12 @@ function PostDetailScreen({ route }) {
 
     try {
       if (reportCommentId) {
-        const commentRef = doc(db, `posts/${postId}/comments`, reportCommentId);
+        const commentRef = doc(db, `posts/${posts[currentIndex].id}/comments`, reportCommentId);
         await updateDoc(commentRef, {
           reports: arrayUnion(reportData),
         });
       } else {
-        const postRef = doc(db, 'posts', postId);
+        const postRef = doc(db, 'posts', posts[currentIndex].id);
         await updateDoc(postRef, {
           reports: arrayUnion(reportData),
         });
@@ -213,92 +235,121 @@ function PostDetailScreen({ route }) {
       setReportType('');
       setReportDetails('');
       setReportModalVisible(false);
-      Alert.alert("Report Submitted", "Thank you for your report.");
+      Alert.alert('Report Submitted', 'Thank you for your report.');
     } catch (error) {
-      console.error("Error submitting report:", error);
-      Alert.alert("Error", "Failed to submit report. Please try again.");
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      {post ? (
-        <>
-          <Text style={styles.caption}>{post.caption}</Text>
-          <Image
-            style={styles.image}
-            source={{ uri: post.imageUrl }}
-            placeholder={{ uri: blurhash }}
-            contentFit="cover"
-            transition={1000}
-          />
-          <View style={styles.header}>
-            <View style={styles.profileContainer}>
-              <Image style={styles.profilePicture} source={{ uri: post.profilePictureUrl }} />
-              <View style={styles.profileInfo}>
-                <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: post.createdBy })}>
-                  <Text style={styles.username}>{post.username}</Text>
-                </TouchableOpacity>
-                <Text style={styles.streak}>Streak: {post.streakScore}</Text>
+    <View style={styles.container}>
+      {posts.length > 0 ? (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.postContainer}>
+              <Image
+                style={styles.image}
+                source={{ uri: item.imageUrl }}
+                placeholder={{ uri: blurhash }}
+                contentFit="cover"
+                transition={1000}
+              />
+              <View style={styles.overlay}>
+                <Text style={styles.caption}>{item.caption}</Text>
+                <View style={styles.header}>
+                  <View style={styles.profileContainer}>
+                    <Image style={styles.profilePicture} source={{ uri: item.profilePictureUrl }} />
+                    <View style={styles.profileInfo}>
+                      <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.createdBy })}>
+                        <Text style={styles.username}>{item.username}</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.streak}>Streak: {item.streakScore}</Text>
+                      <Text style={styles.groupName}>Group: {item.groupName}</Text>
+                    </View>
+                  </View>
+                  {item.createdBy === auth.currentUser.uid ? (
+                    <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+                      <Icon name="trash" size={24} color="#ff4444" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.reportButton} onPress={handleReportPost}>
+                      <Icon name="flag" size={24} color="#ff4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <FlatList
+                  data={comments}
+                  keyExtractor={(comment) => comment.id}
+                  renderItem={({ item: comment }) => (
+                    <View style={styles.commentContainer}>
+                      <View style={styles.commentHeader}>
+                        <Image style={styles.commentProfilePicture} source={{ uri: comment.profilePictureUrl }} />
+                        <View style={styles.commentInfo}>
+                          <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: comment.userId })}>
+                            <Text style={styles.commentUsername}>{comment.username}</Text>
+                          </TouchableOpacity>
+                          {comment.userId === auth.currentUser.uid || item.createdBy === auth.currentUser.uid ? (
+                            <TouchableOpacity style={styles.deleteCommentButton} onPress={() => handleDeleteComment(comment.id)}>
+                              <Icon name="trash" size={16} color="#ff4444" />
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity style={styles.reportCommentButton} onPress={() => handleReportComment(comment.id)}>
+                              <Icon name="flag" size={16} color="#ff4444" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                      <Text style={styles.commentText}>{comment.text}</Text>
+                      <Text style={styles.timestamp}>{comment.createdAt.toLocaleString()}</Text>
+                    </View>
+                  )}
+                />
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                  style={styles.inputContainer}
+                >
+                  <TextInput
+                    value={newComment}
+                    onChangeText={setNewComment}
+                    style={styles.input}
+                    placeholder="Write a comment..."
+                    placeholderTextColor="#ccc"
+                    onSubmitEditing={handleAddComment}
+                  />
+                  <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
+                    <Text style={styles.addCommentButtonText}>Add Comment</Text>
+                  </TouchableOpacity>
+                </KeyboardAvoidingView>
               </View>
             </View>
-            {post.createdBy === auth.currentUser.uid ? (
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
-                <Icon name="trash" size={24} color="#ff4444" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.reportButton} onPress={handleReportPost}>
-                <Icon name="flag" size={24} color="#ff4444" />
-              </TouchableOpacity>
-            )}
-          </View>
-          <FlatList
-            data={comments}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.commentContainer}>
-                <View style={styles.commentHeader}>
-                  <Image style={styles.commentProfilePicture} source={{ uri: item.profilePictureUrl }} />
-                  <View style={styles.commentInfo}>
-                    <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.userId })}>
-                      <Text style={styles.commentUsername}>{item.username}</Text>
-                    </TouchableOpacity>
-                    {item.userId === auth.currentUser.uid || post.createdBy === auth.currentUser.uid ? (
-                      <TouchableOpacity style={styles.deleteCommentButton} onPress={() => handleDeleteComment(item.id)}>
-                        <Icon name="trash" size={16} color="#ff4444" />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity style={styles.reportCommentButton} onPress={() => handleReportComment(item.id)}>
-                        <Icon name="flag" size={16} color="#ff4444" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-                <Text style={styles.commentText}>{item.text}</Text>
-                <Text style={styles.timestamp}>{item.createdAt.toLocaleString()}</Text>
-              </View>
-            )}
-          />
-          <View style={styles.inputContainer}>
-            <TextInput
-              value={newComment}
-              onChangeText={setNewComment}
-              style={styles.input}
-              placeholder="Write a comment..."
-              placeholderTextColor="#ccc"
-              onSubmitEditing={handleAddComment}
-            />
-          </View>
-          <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
-            <Text style={styles.addCommentButtonText}>Add Comment</Text>
-          </TouchableOpacity>
-          <Modal
-            visible={reportModalVisible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setReportModalVisible(false)}
-          >
-            <View style={styles.modalContainer}>
+          )}
+          pagingEnabled
+          horizontal={false}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.y / height);
+            setCurrentIndex(index);
+          }}
+          initialScrollIndex={currentIndex}
+          getItemLayout={(data, index) => (
+            { length: height, offset: height * index, index }
+          )}
+        />
+      ) : (
+        <Text style={styles.loadingText}>Loading post...</Text>
+      )}
+      <Modal
+        visible={reportModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setReportModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setReportModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Report {reportCommentId ? 'Comment' : 'Post'}</Text>
                 <TextInput
@@ -325,29 +376,36 @@ function PostDetailScreen({ route }) {
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          </Modal>
-        </>
-      ) : (
-        <Text style={styles.loadingText}>Loading post...</Text>
-      )}
-    </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', // Dark background
-    padding: 10,
-    paddingTop: 50,
-    paddingBottom: 100,
+    backgroundColor: '#000',
+  },
+  postContainer: {
+    height: height,
+    width: width,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   image: {
-    width: '100%',
-    height: 300,
-    marginBottom: 10,
-    borderRadius: 10,
+    height: height,
+    width: width,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   caption: {
     fontWeight: 'bold',
@@ -376,11 +434,15 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: 'bold',
-    color: '#1e90ff', // Blue color for username
+    color: '#1e90ff',
     fontSize: 16,
   },
   streak: {
     color: '#ccc',
+    fontSize: 14,
+  },
+  groupName: {
+    color: 'grey',
     fontSize: 14,
   },
   deleteButton: {
@@ -396,7 +458,7 @@ const styles = StyleSheet.create({
   commentContainer: {
     padding: 10,
     borderBottomWidth: 1,
-    borderColor: '#282828', // Slightly lighter border for contrast
+    borderColor: '#282828',
     marginBottom: 5,
   },
   commentHeader: {
@@ -418,7 +480,7 @@ const styles = StyleSheet.create({
   },
   commentUsername: {
     fontWeight: 'bold',
-    color: '#1e90ff', // Blue color for usernames
+    color: '#1e90ff',
     fontSize: 14,
   },
   deleteCommentButton: {
@@ -430,13 +492,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   commentText: {
-    color: 'white', // White text for comments
+    color: 'white',
     fontSize: 14,
     marginBottom: 5,
   },
   timestamp: {
     fontSize: 12,
-    color: '#7e7e7e', // Grey for timestamps
+    color: '#7e7e7e',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -455,7 +517,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   addCommentButton: {
-    backgroundColor: '#1e90ff', // Blue button
+    backgroundColor: '#1e90ff',
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',

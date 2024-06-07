@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Picker } from '@react-native-picker/picker';
 import { storage, db, auth } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
-import RNPickerSelect from 'react-native-picker-select';
 
 function PostScreen({ route }) {
   const { groupId, image: initialImage } = route.params || {};
@@ -55,7 +55,7 @@ function PostScreen({ route }) {
               quality: 1,
             });
 
-            if (result.cancelled) {
+            if (result.canceled) {
               setImage(null);
               return;
             }
@@ -73,7 +73,7 @@ function PostScreen({ route }) {
               quality: 1,
             });
 
-            if (result.cancelled) {
+            if (result.canceled) {
               setImage(null);
               return;
             }
@@ -163,14 +163,17 @@ function PostScreen({ route }) {
           onChangeText={setCaption}
           multiline
         />
-        <RNPickerSelect
-          onValueChange={(value) => setSelectedGroup(value)}
-          items={groups.map(group => ({ label: group.name, value: group.id }))}
-          style={pickerSelectStyles}
-          value={selectedGroup}
-          useNativeAndroidPickerStyle={false}
-          placeholder={{ label: "Select a group...", value: null }}
-        />
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedGroup}
+            onValueChange={(itemValue) => setSelectedGroup(itemValue)}
+            style={styles.picker}
+          >
+            {groups.map((group) => (
+              <Picker.Item key={group.id} label={group.name} value={group.id} />
+            ))}
+          </Picker>
+        </View>
         <TouchableOpacity style={styles.button} onPress={handleUpload} disabled={uploading}>
           <Text style={styles.buttonText}>Upload Post</Text>
         </TouchableOpacity>
@@ -185,6 +188,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000',
+    padding: 20,
   },
   profilePictureButton: {
     width: 120,
@@ -212,6 +216,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontSize: 16,
   },
+  pickerContainer: {
+    width: '100%',
+    backgroundColor: '#191919',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+    marginBottom: 20,
+  },
+  picker: {
+    width: '100%',
+    color: 'white',
+  },
   button: {
     width: '100%',
     padding: 15,
@@ -225,29 +241,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#fff',
-    borderRadius: 4,
-    color: 'white',
-    paddingRight: 30,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#fff',
-    borderRadius: 8,
-    color: 'white',
-    paddingRight: 30,
   },
 });
 

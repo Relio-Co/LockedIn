@@ -155,21 +155,7 @@ const FeedScreen = () => {
   };
 
   const handleCamera = async () => {
-    const hasPermission = await requestCameraPermissions();
-    if (!hasPermission) {
-      return;
-    }
-  
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-  
-    if (!result.canceled) {
-      navigation.navigate('Post', { image: result.assets[0].uri });
-    }
+    navigation.navigate('Post');
   };
   
 

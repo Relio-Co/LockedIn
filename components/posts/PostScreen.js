@@ -36,60 +36,27 @@ function PostScreen({ route }) {
     fetchGroups();
   }, [selectedGroup, groupId]);
 
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const takePhoto = async () => {
     const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!permissionResult.granted || !cameraPermissionResult.granted) {
-      Alert.alert("Permission required", "You need to allow access to your photos and camera to upload an image.");
+    if (!cameraPermissionResult.granted) {
+      Alert.alert("Permission required", "You need to allow access to your camera to take a photo.");
       return;
     }
 
-    Alert.alert(
-      "Select Image",
-      "Choose an option",
-      [
-        {
-          text: "Camera Roll",
-          onPress: async () => {
-            let result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 1,
-            });
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
 
-            if (result.canceled) {
-              setImage(null);
-              return;
-            }
+    if (result.canceled) {
+      setImage(null);
+      return;
+    }
 
-            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
-            setImage(manipResult.uri);
-          }
-        },
-        {
-          text: "Take Photo",
-          onPress: async () => {
-            let result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 1,
-            });
-
-            if (result.canceled) {
-              setImage(null);
-              return;
-            }
-
-            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
-            setImage(manipResult.uri);
-          }
-        },
-        { text: "Cancel", style: "cancel" }
-      ],
-      { cancelable: true }
-    );
+    const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+    setImage(manipResult.uri);
   };
 
   const handleUpload = async () => {
@@ -152,11 +119,11 @@ function PostScreen({ route }) {
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.profilePictureButton} onPress={pickImage}>
+        <TouchableOpacity style={styles.profilePictureButton} onPress={takePhoto}>
           {image ? (
             <Image source={{ uri: image }} style={styles.profilePicture} />
           ) : (
-            <Text style={styles.buttonText}>Pick an image</Text>
+            <Text style={styles.buttonText}>Take a photo</Text>
           )}
         </TouchableOpacity>
         <TextInput

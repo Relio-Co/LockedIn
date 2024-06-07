@@ -171,6 +171,7 @@ const FeedScreen = () => {
       navigation.navigate('Post', { image: result.assets[0].uri });
     }
   };
+  
 
   return (
     <View style={styles.container}>

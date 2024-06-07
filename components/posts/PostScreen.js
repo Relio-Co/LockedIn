@@ -17,20 +17,24 @@ function PostScreen({ route }) {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
-      const snapshot = await getDocs(q);
-      const groupsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        public: doc.data().public
-      }));
-      setGroups(groupsData);
-      if (!selectedGroup && groupsData.length > 0 && !groupId) {
-        setSelectedGroup(groupsData[0].id);
+      try {
+        const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
+        const snapshot = await getDocs(q);
+        const groupsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+          public: doc.data().public
+        }));
+        setGroups(groupsData);
+        if (!selectedGroup && groupsData.length > 0 && !groupId) {
+          setSelectedGroup(groupsData[0].id);
+        }
+      } catch (error) {
+        console.error("Error fetching groups:", error);
       }
     };
     fetchGroups();
-  }, []);
+  }, [selectedGroup, groupId]);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();

@@ -3,9 +3,16 @@ import { View, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, Keyb
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Picker } from '@react-native-picker/picker';
-import { storage, db, auth } from '../../firebaseConfig';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, query, getDocs, where, doc, getDoc, addDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
+import { firebaseConfig } from '../../firebaseConfig';
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const auth = getAuth(app);
 
 function PostScreen({ route }) {
   const { groupId, image: initialImage } = route.params || {};
@@ -17,16 +24,20 @@ function PostScreen({ route }) {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
-      const snapshot = await getDocs(q);
-      const groupsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        public: doc.data().public
-      }));
-      setGroups(groupsData);
-      if (!selectedGroup && groupsData.length > 0 && !groupId) {
-        setSelectedGroup(groupsData[0].id);
+      try {
+        const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
+        const snapshot = await getDocs(q);
+        const groupsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+          public: doc.data().public
+        }));
+        setGroups(groupsData);
+        if (!selectedGroup && groupsData.length > 0 && !groupId) {
+          setSelectedGroup(groupsData[0].id);
+        }
+      } catch (error) {
+        console.error("Error fetching groups:", error);
       }
     };
     fetchGroups();

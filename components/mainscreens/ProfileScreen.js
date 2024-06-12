@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, ImageBackground, Dimensions } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
 import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -7,6 +7,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Image } from 'expo-image';
+
+const { width } = Dimensions.get('window');
 
 function ProfileScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -34,8 +36,8 @@ function ProfileScreen({ navigation }) {
           streakScore: userData.streakScore,
           highestGlobalStreak: userData.highestGlobalStreak,
         });
-        setGroupStreaks(userData.groupStreaks || {});
-
+        await fetchGroupNames(userData.groupStreaks || {});
+        
         // Fetch user's posts
         const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', auth.currentUser.uid));
         const postsSnap = await getDocs(postsQuery);
@@ -44,6 +46,26 @@ function ProfileScreen({ navigation }) {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch user data');
+    }
+  };
+
+  const fetchGroupNames = async (groupStreaks) => {
+    try {
+      const groupNames = {};
+      const groupIds = Object.keys(groupStreaks);
+      for (const groupId of groupIds) {
+        const groupRef = doc(db, 'groups', groupId);
+        const groupSnap = await getDoc(groupRef);
+        if (groupSnap.exists()) {
+          groupNames[groupId] = {
+            name: groupSnap.data().name,
+            ...groupStreaks[groupId],
+          };
+        }
+      }
+      setGroupStreaks(groupNames);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch group names');
     }
   };
 
@@ -202,11 +224,11 @@ function ProfileScreen({ navigation }) {
       </View>
       <View style={styles.streaks}>
         <Text style={styles.streaksTitle}>Group Streaks</Text>
-        {Object.entries(groupStreaks).map(([group, streakData]) => (
-          <View key={group} style={styles.streak}>
+        {Object.entries(groupStreaks).map(([groupId, streakData]) => (
+          <View key={groupId} style={styles.streak}>
             <Icon name="bolt" size={20} color="orange" />
             <Text style={styles.streakText}>
-              {group.name}: {streakData.streakScore} days (Highest: {streakData.highestStreak} days)
+              {streakData.name}: {streakData.streakScore} days (Highest: {streakData.highestStreak} days)
             </Text>
           </View>
         ))}
@@ -255,6 +277,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
+    width: '80%',
   },
   settingsIcon: {
     marginLeft: 'auto',
@@ -301,8 +324,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   activityDay: {
-    width: 20,
-    height: 20,
+    width: (width - 40) / 10,
+    height: (width - 40) / 10,
     margin: 2,
   },
 });

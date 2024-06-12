@@ -1,26 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Switch, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, Switch, ScrollView, StyleSheet, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import * as Haptics from 'expo-haptics';
+import { sendEmailVerification, deleteUser } from 'firebase/auth';
 
 function SettingsScreen() {
   const [settings, setSettings] = useState({
     email: '',
-    password: '',
     pushNotifications: false,
     emailNotifications: false,
-    defaultGroup: '',
-    uploadQuality: '',
-    uploadFormat: '',
-    groupNotifications: false,
-    units: '',
-    dateFormat: '',
-    firstDayOfWeek: '',
     privateAccount: false,
-    blockedUsers: [],
-    termsOfService: '',
-    privacyPolicy: '',
-    helpAndFAQs: ''
   });
 
   // Fetch user settings from Firestore
@@ -42,6 +32,40 @@ function SettingsScreen() {
     alert('Settings updated successfully!');
   };
 
+  // Function to send user data via email
+  const handleDownloadData = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Placeholder for sending email with user data
+    alert('User data will be sent to your email.');
+  };
+
+  // Function to handle account deletion
+  const handleDeleteAccount = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          onPress: async () => {
+            try {
+              await deleteUser(auth.currentUser);
+              alert('Account deleted successfully.');
+            } catch (error) {
+              alert('Error deleting account: ' + error.message);
+            }
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
@@ -50,15 +74,7 @@ function SettingsScreen() {
           style={styles.input}
           value={settings.email}
           onChangeText={(text) => setSettings(prev => ({ ...prev, email: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.password}
-          secureTextEntry
-          onChangeText={(text) => setSettings(prev => ({ ...prev, password: text }))}
+          editable={false}
         />
       </View>
       <View style={styles.section}>
@@ -78,62 +94,6 @@ function SettingsScreen() {
         />
       </View>
       <View style={styles.section}>
-        <Text style={styles.label}>Default Group</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.defaultGroup}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, defaultGroup: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Upload Quality</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.uploadQuality}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, uploadQuality: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Upload Format</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.uploadFormat}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, uploadFormat: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Group Notifications</Text>
-        <Switch
-          style={styles.switch}
-          onValueChange={() => setSettings(prev => ({ ...prev, groupNotifications: !prev.groupNotifications }))}
-          value={settings.groupNotifications}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Units</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.units}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, units: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>Date and Time Format</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.dateFormat}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, dateFormat: text }))}
-        />
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.label}>First Day of the Week</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.firstDayOfWeek}
-          onChangeText={(text) => setSettings(prev => ({ ...prev, firstDayOfWeek: text }))}
-        />
-      </View>
-      <View style={styles.section}>
         <Text style={styles.label}>Private Account</Text>
         <Switch
           style={styles.switch}
@@ -143,6 +103,12 @@ function SettingsScreen() {
       </View>
       <View style={styles.section}>
         <Button title="Save Settings" onPress={saveSettings} color="#1E90FF" />
+      </View>
+      <View style={styles.section}>
+        <Button title="Download My Data" onPress={handleDownloadData} color="#1E90FF" />
+      </View>
+      <View style={styles.section}>
+        <Button title="Delete Account" onPress={handleDeleteAccount} color="red" />
       </View>
     </ScrollView>
   );

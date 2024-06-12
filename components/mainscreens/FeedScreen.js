@@ -21,11 +21,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from "expo-image";
 import * as ImagePicker from 'expo-image-picker';
 
+import ImageFeed from './ImageFeed'; // Import the new ImageFeed component
+
 const { width, height } = Dimensions.get('window');
 const pageSize = 400;
-
-const blurhash =
-  "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
 
 const FeedScreen = () => {
   const navigation = useNavigation();
@@ -115,36 +114,6 @@ const FeedScreen = () => {
     setRefreshing(false);
   };
 
-  const renderPostItem = (item, index) => (
-    <TouchableOpacity key={`${item.id}-${index}`} onPress={() => navigation.navigate('PostDetail', { postId: item.id })} style={styles.postItem}>
-      <Image
-        style={styles.postImage}
-        source={{ uri: item.imageUrl }}
-        placeholder={{ uri: blurhash }}
-        contentFit="cover"
-        transition={1000}
-      />
-      <View style={styles.postDetails}>
-        <Text style={styles.posterName}>
-          <Ionicons name="flame-outline" size={16} color="orange" /> {item.streak} - {item.username}
-        </Text>
-        <Text style={styles.postCaption}>{item.caption}</Text>
-        <View style={styles.groupPill}>
-          <Text style={styles.groupPillText}>{item.group}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderPosts = () => {
-    return (
-      <View style={styles.postsContainer}>
-        {posts.map((item, index) => renderPostItem(item, index))}
-        {loading && <ActivityIndicator size="large" color="#00b4d8" />}
-      </View>
-    );
-  };
-
   const requestCameraPermissions = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -174,7 +143,7 @@ const FeedScreen = () => {
         }
       >
         <ScrollView contentContainerStyle={styles.contentContainer}>
-          {renderPosts()}
+          <ImageFeed posts={posts} loading={loading} navigation={navigation} />
         </ScrollView>
       </ScrollView>
 

@@ -1,5 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, Dimensions, Platform, Modal, TextInput, KeyboardAvoidingView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  Dimensions,
+  Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback
+} from 'react-native';
 import { db, auth, storage } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, getDocs, addDoc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
@@ -9,8 +23,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 
 const { height, width } = Dimensions.get('window');
 
-const blurhash =
-  '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
+const blurhash = '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
 
 const PostDetailScreen = ({ route }) => {
   const { postId } = route.params;
@@ -23,6 +36,7 @@ const PostDetailScreen = ({ route }) => {
   const [reportType, setReportType] = useState('');
   const [reportCommentId, setReportCommentId] = useState(null);
   const navigation = useNavigation();
+  const flatListRef = useRef();
 
   useEffect(() => {
     async function fetchPosts() {
@@ -246,6 +260,7 @@ const PostDetailScreen = ({ route }) => {
     <View style={styles.container}>
       {posts.length > 0 ? (
         <FlatList
+          ref={flatListRef}
           data={posts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (

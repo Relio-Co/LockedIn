@@ -1,10 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WelcomeScreen = () => {
   const navigation = useNavigation();
+
+  useEffect(() => {
+    const checkUserLoggedIn = async () => {
+      const userProfile = await AsyncStorage.getItem('userProfile');
+      if (userProfile) {
+        navigation.replace('Feed');
+      }
+    };
+    checkUserLoggedIn();
+  }, []);
 
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>

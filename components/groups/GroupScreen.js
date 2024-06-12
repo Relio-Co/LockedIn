@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,23 +64,15 @@ const GroupsScreen = () => {
     setLoading(false);
   };
 
-  const handleJoinGroup = async (groupId) => {
+  const handleAddHabit = async (groupId) => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      const groupRef = doc(db, 'groups', groupId);
-
       await updateDoc(userRef, {
-        groups: arrayUnion(groupId)
+        habits: arrayUnion(groupId)
       });
-
-      await updateDoc(groupRef, {
-        members: arrayUnion(auth.currentUser.uid)
-      });
-
-      fetchAllGroups();
-      Alert.alert('Success', 'You have joined the group.');
+      Alert.alert('Success', 'Habit added to your profile!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to join the group');
+      Alert.alert('Error', 'Failed to add habit');
     }
   };
 
@@ -110,16 +102,18 @@ const GroupsScreen = () => {
     const groupBorderColor = '#000';
 
     return (
-      <TouchableOpacity 
-        style={[styles.card, { backgroundColor: groupBackgroundColor, borderColor: groupBorderColor }]} 
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: groupBackgroundColor, borderColor: groupBorderColor }]}
         onPress={() => navigation.navigate('GroupDetails', { groupId: item.id })}
       >
         <Text style={[styles.cardText, { color: isGroupMember ? '#000' : '#fff' }]}>#{item.name}</Text>
         <View style={styles.cardFooter}>
           <Icon name="user" size={20} color={isGroupMember ? '#000' : '#fff'} />
           <Text style={[styles.cardText, { color: isGroupMember ? '#000' : '#fff' }]}>{getMemberCount(item.members)}</Text>
-          <Icon name={isGroupMember ? "lock" : "unlock"} size={20} color={isGroupMember ? '#000' : '#fff'} />
         </View>
+        <TouchableOpacity style={styles.addButton} onPress={() => handleAddHabit(item.id)}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -189,18 +183,6 @@ const GroupsScreen = () => {
                   'Habits are things you do every day. Try adding a private habit to your profile.',
                   allGroups.filter(group => group.type === 'habits'),
                   'habits-section'
-                )}
-                {renderSection(
-                  'Challenges',
-                  'Challenges are habits that have a goal or certain number of days. Try joining a group challenge.',
-                  allGroups.filter(group => group.type === 'challenges'),
-                  'challenges-section'
-                )}
-                {renderSection(
-                  'Chill',
-                  'Chill groups are regular accountability groups.',
-                  allGroups.filter(group => !group.type || group.type === 'chill'),
-                  'chill-section'
                 )}
                 {renderSuggestedSection()}
               </View>
@@ -284,6 +266,7 @@ const styles = StyleSheet.create({
     width: width * 0.7, // More rectangular (horizontal)
     height: width * 0.25,
     borderWidth: 1,
+    position: 'relative',
   },
   cardText: {
     fontSize: 14,
@@ -297,6 +280,21 @@ const styles = StyleSheet.create({
   loadingIndicator: {
     flex: 1,
     justifyContent: 'center',
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: '#000',
+    borderRadius: 10,
+    padding: 5,
+    width: '20%', // Quarter of the width of the card
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 24,
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Platform, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Platform, RefreshControl, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { db, auth } from '../../firebaseConfig';
@@ -265,6 +265,41 @@ const ForYouFeedScreen = () => {
           </TouchableOpacity>
         </BlurView>
       </View>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={profileModalVisible}
+        onRequestClose={() => setProfileModalVisible(!profileModalVisible)}
+      >
+        <TouchableOpacity style={styles.modalContainer} onPress={() => setProfileModalVisible(false)}>
+          <View style={styles.modalView}>
+            <TouchableOpacity style={styles.modalButton} onPress={() => {
+              setProfileModalVisible(false);
+              navigation.navigate('FriendsScreen');
+            }}>
+              <Text style={styles.modalButtonText}>Add Friend</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalButton} onPress={() => {
+              setProfileModalVisible(false);
+              navigation.navigate('Profile');
+            }}>
+              <Text style={styles.modalButtonText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalButton} onPress={() => {
+              setProfileModalVisible(false);
+              navigation.navigate('AddHabit');
+            }}>
+              <Text style={styles.modalButtonText}>Add Habit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalButton} onPress={() => {
+              setProfileModalVisible(false);
+              navigation.navigate('Settings');
+            }}>
+              <Text style={styles.modalButtonText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -415,6 +450,39 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: 'red',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 20,
+    padding: 10,
+    marginBottom: 10,
+    width: 200,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

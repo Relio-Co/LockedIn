@@ -220,9 +220,9 @@ const FeedScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
               setProfileModalVisible(false);
-              navigation.navigate('AddHabit');
+              navigation.navigate('HabitScreen');
             }}>
-              <Text style={styles.modalButtonText}>Add Habit</Text>
+              <Text style={styles.modalButtonText}>Habits</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => {
               setProfileModalVisible(false);

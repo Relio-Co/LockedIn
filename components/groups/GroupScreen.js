@@ -29,10 +29,12 @@ const GroupsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userHabits, setUserHabits] = useState([]);
   const navigation = useNavigation();
 
   useEffect(() => {
     fetchAllGroups();
+    fetchUserHabits();
   }, []);
 
   const fetchAllGroups = async () => {
@@ -64,12 +66,26 @@ const GroupsScreen = () => {
     setLoading(false);
   };
 
+  const fetchUserHabits = async () => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const habits = docSnap.data().habits || [];
+        setUserHabits(habits);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch user habits');
+    }
+  };
+
   const handleAddHabit = async (groupId) => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
         habits: arrayUnion(groupId)
       });
+      setUserHabits([...userHabits, groupId]);
       Alert.alert('Success', 'Habit added to your profile!');
     } catch (error) {
       Alert.alert('Error', 'Failed to add habit');
@@ -100,6 +116,7 @@ const GroupsScreen = () => {
     const isGroupMember = isMember(item.id);
     const groupBackgroundColor = isGroupMember ? 'white' : '#000';
     const groupBorderColor = '#000';
+    const isHabitAdded = userHabits.includes(item.id);
 
     return (
       <TouchableOpacity
@@ -111,9 +128,14 @@ const GroupsScreen = () => {
           <Icon name="user" size={20} color={isGroupMember ? '#000' : '#fff'} />
           <Text style={[styles.cardText, { color: isGroupMember ? '#000' : '#fff' }]}>{getMemberCount(item.members)}</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => handleAddHabit(item.id)}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+        {item.type === 'habits' && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => !isHabitAdded && handleAddHabit(item.id)}
+          >
+            <Icon name={isHabitAdded ? 'lock' : 'plus'} size={24} color={isHabitAdded ? 'blue' : 'white'} />
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
@@ -124,7 +146,7 @@ const GroupsScreen = () => {
       <Text style={styles.sectionHeaderDescription}>{description}</Text>
       <FlatList
         data={data}
-        keyExtractor={item => item.id}
+        keyExtractor={item => `${sectionKey}-${item.id}`}
         horizontal
         renderItem={renderGroupItem}
         showsHorizontalScrollIndicator={false}
@@ -139,7 +161,7 @@ const GroupsScreen = () => {
       <Text style={styles.sectionHeaderDescription}>Here are some groups you might like.</Text>
       <FlatList
         data={allGroups.filter(group => !isMember(group.id))}
-        keyExtractor={item => item.id}
+        keyExtractor={item => `suggested-${item.id}`}
         horizontal
         renderItem={renderGroupItem}
         showsHorizontalScrollIndicator={false}
@@ -183,6 +205,18 @@ const GroupsScreen = () => {
                   'Habits are things you do every day. Try adding a private habit to your profile.',
                   allGroups.filter(group => group.type === 'habits'),
                   'habits-section'
+                )}
+                {renderSection(
+                  'Challenges',
+                  'Challenges are habits that have a goal or certain number of days. Try joining a group challenge.',
+                  allGroups.filter(group => group.type === 'challenges'),
+                  'challenges-section'
+                )}
+                {renderSection(
+                  'Groups',
+                  'Groups you are part of.',
+                  groups,
+                  'groups-section'
                 )}
                 {renderSuggestedSection()}
               </View>
@@ -263,7 +297,7 @@ const styles = StyleSheet.create({
     margin: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    width: width * 0.7, // More rectangular (horizontal)
+    width: width * 0.7,
     height: width * 0.25,
     borderWidth: 1,
     position: 'relative',
@@ -288,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 10,
     padding: 5,
-    width: '20%', // Quarter of the width of the card
+    width: '20%',
     alignItems: 'center',
     justifyContent: 'center',
   },

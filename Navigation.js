@@ -25,6 +25,7 @@ import AIChatScreen from './components/groups/AIChatScreen';
 import ForYouFeedScreen from './components/mainscreens/ForYouFeedScreen';
 import MarketplaceScreen from './components/marketplace/MarketplaceScreen';
 import SearchScreen from './components/mainscreens/SearchScreen';
+import HabitScreen from './components/habits/HabitScreen';
 const Stack = createNativeStackNavigator();
 
 function Navigation() {
@@ -54,6 +55,7 @@ function Navigation() {
         <Stack.Screen name="AIChatScreen" component={AIChatScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="ForYouFeedScreen" component={ForYouFeedScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="MarketplaceScreen" component={MarketplaceScreen} options={{ headerShown: false }}/>
+        <Stack.Screen name="HabitScreen" component={HabitScreen} options={{ headerShown: false }}/>
         <Stack.Screen name="Search" component={SearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>

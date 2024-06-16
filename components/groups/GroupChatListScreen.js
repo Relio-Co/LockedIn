@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { auth, db, rtdb } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayRemove } from 'firebase/firestore';
-import { ref, onValue } from 'firebase/database';
+import { ref as sRef, onValue, get } from 'firebase/database';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
@@ -16,35 +16,55 @@ const GroupChatListScreen = () => {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        setUserProfile(userSnap.data());
-        setOwnedChatbots(userSnap.data().items?.chatbot || []);
+      try {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setUserProfile(userSnap.data());
+          setOwnedChatbots(userSnap.data().items?.chatbot || []);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile: ", error);
+        Alert.alert('Error', 'Failed to fetch user profile. Please try again.');
       }
     };
 
     const fetchChats = async () => {
-      const groupChatsQuery = query(collection(db, 'groups'), where('members', 'array-contains', auth.currentUser.uid));
-      const privateChatsQuery = query(collection(db, 'privateChats'), where('members', 'array-contains', auth.currentUser.uid));
+      try {
+        const groupChatsQuery = query(collection(db, 'groups'), where('members', 'array-contains', auth.currentUser.uid));
+        const privateChatsQuery = query(collection(db, 'privateChats'), where('members', 'array-contains', auth.currentUser.uid));
 
-      const [groupChatsSnap, privateChatsSnap] = await Promise.all([getDocs(groupChatsQuery), getDocs(privateChatsQuery)]);
+        const [groupChatsSnap, privateChatsSnap] = await Promise.all([getDocs(groupChatsQuery), getDocs(privateChatsQuery)]);
 
-      const groupChatsData = groupChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: true }));
-      const privateChatsData = privateChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: false }));
+        const groupChatsData = groupChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: true }));
+        const privateChatsData = privateChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: false }));
 
-      const allChatsData = [...groupChatsData, ...privateChatsData];
+        const allChatsData = [...groupChatsData, ...privateChatsData];
 
-      for (let chat of allChatsData) {
-        if (chat.isGroupChat) {
-          const messagesRef = ref(rtdb, `groupChats/${chat.id}/messages`);
-          onValue(messagesRef, (snapshot) => {
-            const messagesData = snapshot.val();
-            const parsedMessages = messagesData ? Object.keys(messagesData).map(key => messagesData[key]) : [];
-            chat.lastMessage = parsedMessages[parsedMessages.length - 1];
-            setAllChats([...allChatsData].sort((a, b) => b.lastMessage?.createdAt - a.lastMessage?.createdAt));
-          });
-        }
+        const updatedChats = await Promise.all(allChatsData.map(async (chat) => {
+          if (chat.isGroupChat) {
+            const messagesRef = sRef(rtdb, `groupChats/${chat.id}/messages`);
+            try {
+              const snapshot = await get(messagesRef);
+              const messagesData = snapshot.val();
+              if (messagesData) {
+                const parsedMessages = Object.keys(messagesData).map(key => messagesData[key]);
+                chat.lastMessage = parsedMessages[parsedMessages.length - 1];
+              } else {
+                chat.lastMessage = null;
+              }
+            } catch (error) {
+              console.error(`Error fetching messages for chat ${chat.id}: `, error);
+              chat.lastMessage = null;
+            }
+          }
+          return chat;
+        }));
+
+        setAllChats(updatedChats.sort((a, b) => (b.lastMessage?.createdAt || 0) - (a.lastMessage?.createdAt || 0)));
+      } catch (error) {
+        console.error("Error fetching chats: ", error);
+        Alert.alert('Error', 'Failed to fetch chats. Please try again.');
       }
     };
 
@@ -103,7 +123,7 @@ const GroupChatListScreen = () => {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('GroupChat', { groupId: item.id })}>
         <View style={styles.chatContainer}>
-          <Image style={styles.avatar} source={{ uri: item.profilePicture }} />
+          <Image style={styles.avatar} source={{ uri: item.profilePicture || 'https://via.placeholder.com/50' }} />
           <View style={styles.chatInfo}>
             <Text style={styles.chatName}>
               {isGroupChat && item.groupIcon ? `${item.groupIcon} ` : ''}{item.name}
@@ -233,3 +253,4 @@ const styles = StyleSheet.create({
 });
 
 export default GroupChatListScreen;
+  

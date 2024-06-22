@@ -1,240 +1,229 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Platform, RefreshControl, Modal } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Text, Platform, StyleSheet, Dimensions, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { BlurView } from 'expo-blur';
-import { db, auth } from '../../firebaseConfig';
-import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
-import { Image } from 'expo-image';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { collection, query, getDocs, doc, getDoc, orderBy, limit, where, arrayRemove, updateDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
+const { width, height } = Dimensions.get('window');
+
 const ForYouFeedScreen = () => {
-  const [groups, setGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [profilePicture, setProfilePicture] = useState('');
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
 
   useEffect(() => {
-    loadPosts();
+    loadGroups();
     fetchProfilePicture();
   }, []);
+
+  const fetchGroups = async () => {
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const groupsRef = collection(userRef, 'groups');
+      const groupsSnap = await getDocs(groupsRef);
+
+      // 1. Fetch member data for all groups
+      const allMemberIds = groupsSnap.docs.reduce((acc, doc) => {
+        return [...acc, ...Object.keys(doc.data().members)]; 
+      }, []);
+
+      const membersQuery = query(collection(db, 'users'), where('uid', 'in', allMemberIds));
+      const membersSnap = await getDocs(membersQuery);
+      const membersMap = {};
+      membersSnap.docs.forEach(doc => {
+        membersMap[doc.id] = doc.data();
+      });
+
+      // 2. Fetch latest posts for all members
+      const latestPostsQuery = query(
+        collection(db, 'posts'), 
+        where('created_by', 'in', allMemberIds), 
+        orderBy('created_at', 'desc'),
+        limit(20) // Limit to prevent fetching too many posts
+      );
+      const latestPostsSnap = await getDocs(latestPostsQuery);
+
+      // 3. Process group data and associate member data and latest posts
+      const groupsData = await Promise.all(groupsSnap.docs.map(async groupDoc => {
+        const groupData = { id: groupDoc.id, ...groupDoc.data() };
+        const members = Object.keys(groupData.members).map(memberId => {
+          return { id: memberId, ...membersMap[memberId], latestPost: null };
+        });
+
+        latestPostsSnap.docs.forEach(postDoc => {
+          const postUserId = postDoc.data().created_by;
+          const memberIndex = members.findIndex(m => m.id === postUserId);
+          if (memberIndex !== -1) {
+            members[memberIndex].latestPost = postDoc.data();
+          }
+        });
+
+        const completedCount = members.filter(member => member.latestPost).length;
+        return { ...groupData, members, completedCount };
+      }));
+
+      setGroups(groupsData);
+      await AsyncStorage.setItem('forYouGroups', JSON.stringify(groupsData)); // Cache with a distinct key
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+      Alert.alert('Error', 'Failed to fetch groups data.');
+    }
+    setLoading(false);
+  };
+
+  const loadGroups = async () => {
+    setLoading(true);
+    try {
+      const cachedGroups = await AsyncStorage.getItem('forYouGroups');
+      if (cachedGroups) {
+        setGroups(JSON.parse(cachedGroups));
+      } else {
+        await fetchGroups();
+      }
+    } catch (error) {
+      console.error('Error loading groups:', error);
+      Alert.alert('Error', 'Failed to load groups data.');
+    }
+    setLoading(false);
+  };
 
   const fetchProfilePicture = async () => {
     try {
       const userProfile = await AsyncStorage.getItem('userProfile');
       if (userProfile) {
         const userProfileData = JSON.parse(userProfile);
-        setProfilePicture(userProfileData.profilePicture);
+        setProfilePicture(userProfileData.profile_picture);
       }
     } catch (error) {
-      console.error("Error fetching profile picture:", error);
-    }
-  };
-
-  const loadPosts = async () => {
-    try {
-      const cachedGroups = await AsyncStorage.getItem('groups');
-      if (cachedGroups) {
-        setGroups(JSON.parse(cachedGroups));
-        setLoading(false);
-      } else {
-        await fetchGroupsAndPosts();
-      }
-    } catch (error) {
-      console.error("Error loading posts:", error);
-      setLoading(false);
-    }
-  };
-
-  const fetchGroupsAndPosts = async () => {
-    try {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
-      const userGroups = docSnap.exists() ? docSnap.data().groups || [] : [];
-
-      const groupPosts = await Promise.all(
-        userGroups.map(async (groupId) => {
-          const groupRef = doc(db, 'groups', groupId);
-          const groupSnap = await getDoc(groupRef);
-          const groupData = groupSnap.exists() ? groupSnap.data() : null;
-          const postIds = groupData?.posts || [];
-          const today = new Date().toISOString().split('T')[0];
-
-          const postDocs = await Promise.all(
-            postIds.map(async (postId) => {
-              const postRef = doc(db, 'posts', postId);
-              const postSnap = await getDoc(postRef);
-              const postData = postSnap.exists() ? postSnap.data() : null;
-              if (postData?.createdAt?.toDate().toISOString().split('T')[0] === today) {
-                return {
-                  ...postData,
-                  createdAt: postData.createdAt.toDate(),
-                  groupName: groupData?.name || 'Unknown',
-                  id: postSnap.id,
-                };
-              }
-              return null;
-            })
-          );
-
-          const latestPosts = postDocs
-            .filter(post => post !== null)
-            .reduce((acc, post) => {
-              if (!acc[post.createdBy] || acc[post.createdBy].createdAt < post.createdAt) {
-                acc[post.createdBy] = post;
-              }
-              return acc;
-            }, {});
-
-          const memberIds = groupData?.members || [];
-          const userProfiles = memberIds.length
-            ? (
-                await getDocs(
-                  query(collection(db, 'users'), where('__name__', 'in', memberIds))
-                )
-              ).docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }))
-            : [];
-
-          return {
-            groupId,
-            name: groupData?.name || 'Unknown',
-            posts: Object.values(latestPosts),
-            userProfiles,
-            currentStreak: groupData?.streak || 0,
-          };
-        })
-      );
-
-      groupPosts.sort((a, b) => b.currentStreak - a.currentStreak);
-
-      await AsyncStorage.setItem('groups', JSON.stringify(groupPosts));
-      setGroups(groupPosts);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching groups and posts:', error);
-      setLoading(false);
-    }
-  };
-
-  const handlePostPress = (postId) => {
-    navigation.navigate('PostDetail', { postId });
-  };
-
-  const handleProfilePress = (userId) => {
-    navigation.navigate('UserProfile', { userId });
-  };
-
-  const handleGroupPress = (groupId) => {
-    navigation.navigate('GroupDetails', { groupId });
-  };
-
-  const handleCamera = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.cancelled) {
-      navigation.navigate('Post', { image: result.uri });
+      console.error('Error fetching profile picture:', error);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchGroupsAndPosts();
+    await fetchGroups();
     setRefreshing(false);
   };
 
-  const renderGroupItem = ({ item }) => (
-    <View style={styles.groupCard}>
-      <Text style={styles.groupName} onPress={() => handleGroupPress(item.groupId)}>#{item.name}</Text>
-      <Text style={styles.groupDetails}>Current Streak: {item.currentStreak} days</Text>
-      <View style={styles.postGrid}>
-        {item.userProfiles?.map((profile) => {
-          const post = item.posts?.find(
-            (post) => post.createdBy === profile.id
-          );
-          return (
-            <View key={profile.id} style={styles.postTile}>
-              {post ? (
-                <TouchableOpacity onPress={() => handlePostPress(post.id)}>
-                  <Image
-                    style={styles.postImage}
-                    source={{ uri: post.imageUrl }}
-                    placeholder={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA...' }} // Replace with actual placeholder if needed
-                    contentFit="cover"
-                    transition={1000}
-                  />
-                </TouchableOpacity>
-              ) : profile.profilePicture ? (
-                <TouchableOpacity onPress={() => handleProfilePress(profile.id)}>
-                  <Image
-                    style={styles.profileImage}
-                    source={{ uri: profile.profilePicture }}
-                  />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={() => handleProfilePress(profile.id)}>
-                  <View style={[styles.profileImage, styles.noProfilePic]}>
-                    <Text style={styles.noProfilePicText}>No Profile Picture</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
+  const handleCamera = async () => {
+    const hasPermission = await ImagePicker.requestCameraPermissionsAsync();
+    if (hasPermission.status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera permission is required to take a photo.');
+      return;
+    }
+    navigation.navigate('Post');
+  };
+
+  const handleNudge = async (memberId, groupId) => {
+    try {
+      // Assuming you have a way to send notifications in your app (e.g., using Firebase Cloud Messaging)
+      // Replace this with your notification logic:
+      console.log(`Sending nudge to user ${memberId} in group ${groupId}`); 
+      Alert.alert('Nudge Sent', 'A notification has been sent to the user.');
+    } catch (error) {
+      console.error('Error sending nudge:', error);
+      Alert.alert('Error', 'Failed to send nudge.');
+    }
+  };
+
+  const handleSnitch = async (memberId, groupId) => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const groupRef = doc(db, 'groups', groupId);
+      const snitchData = {
+        reportedBy: auth.currentUser.uid,
+        reportedUser: memberId,
+        timestamp: new Date(),
+        // Add any other relevant details about the snitch
+      };
+
+      // Update the group document with the snitch data
+      await updateDoc(groupRef, {
+        snitches: arrayUnion(snitchData),
+      });
+
+      Alert.alert('Snitch Reported', 'The group admin has been notified.');
+    } catch (error) {
+      console.error('Error reporting snitch:', error);
+      Alert.alert('Error', 'Failed to report snitch.');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator size="large" color="#00b4d8" />
-      ) : (
-        <FlatList
-          data={groups}
-          keyExtractor={(item) => item.groupId}
-          renderItem={renderGroupItem}
-          contentContainerStyle={styles.flatListContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-            />
-          }
-        />
-      )}
+      <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#00b4d8" style={{ marginTop: 20 }} />
+        ) : (
+          groups.map(group => (
+            <View key={group.id} style={[styles.groupCard, group.completedCount === group.members.length && styles.groupCardHighlight]}>
+              <Text style={styles.groupName}>
+                #{group.name} ({group.completedCount}/{group.members.length}) - {group.score} points
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {group.members.slice(0, 8).map(member => (
+                  <View key={member.id} style={styles.memberContainer}>
+                    <Image source={{ uri: member.profilePicture }} style={styles.memberImage} />
+                    <Text style={styles.memberName}>{member.username}</Text>
+                    {member.latestPost ? (
+                      <Image source={{ uri: member.latestPost.image_url }} style={styles.postImage} />
+                    ) : (
+                      <Text style={styles.noPostText}>No post today</Text>
+                    )}
+                    <View style={styles.buttonContainer}>
+                      {!member.latestPost && (
+                        <TouchableOpacity style={styles.iconButton} onPress={() => handleNudge(member.id, group.id)}>
+                          <MaterialCommunityIcons name="bell-ring-outline" size={24} color="white" />
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity style={styles.iconButton} onPress={() => handleSnitch(member.id, group.id)}>
+                        <MaterialCommunityIcons name="alert-circle-outline" size={24} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
       <View style={styles.topPillsContainer}>
-        <View style={styles.pillWrapper}>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('Search')}>
           <BlurView intensity={50} style={styles.pill}>
-            <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-              <Ionicons name="search" size={24} color="white" />
-            </TouchableOpacity>
+            <Ionicons name="search" size={24} color="white" />
           </BlurView>
-        </View>
-        <View style={styles.pillWrapper}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper}>
           <BlurView intensity={50} style={styles.pill}>
-            <TouchableOpacity onPress={() => navigation.replace('Feed')}>
-              <Text style={styles.pillText}>Explore</Text>
-            </TouchableOpacity>
+            <Text style={styles.pillText}>Explore</Text>
           </BlurView>
-        </View>
-        <View style={styles.pillWrapper}>
-          <BlurView intensity={50} style={styles.pillH}>
-            <TouchableOpacity onPress={() => navigation.replace('ForYouFeedScreen')}>
-              <Text style={styles.pillText}>For You</Text>
-            </TouchableOpacity>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.replace('ForYouFeedScreen')}>
+          <BlurView intensity={50} style={styles.pill}>
+            <Text style={styles.pillText}>For You</Text>
           </BlurView>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('FriendsScreen')}>
+          <BlurView intensity={50} style={styles.pill}>
+            <MaterialIcons name="person-add" size={24} color="white" />
+          </BlurView>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('Settings')}>
+          <BlurView intensity={50} style={styles.pill}>
+            <Ionicons name="settings" size={24} color="white" />
+          </BlurView>
+        </TouchableOpacity>
       </View>
+
       <View style={styles.navbarWrapper}>
         <BlurView intensity={70} style={styles.navbar}>
           <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Groups')}>
@@ -257,49 +246,15 @@ const ForYouFeedScreen = () => {
               <View style={styles.notificationDot} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}>
-            <Image 
-              source={{ uri: profilePicture }} 
-              style={styles.profileImage} 
-            />
+          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+            {profilePicture ? (
+              <Image source={{ uri: profilePicture }} style={styles.profileImage} />
+            ) : (
+              <MaterialIcons name="person" size={24} color="white" />
+            )}
           </TouchableOpacity>
         </BlurView>
       </View>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={profileModalVisible}
-        onRequestClose={() => setProfileModalVisible(!profileModalVisible)}
-      >
-        <TouchableOpacity style={styles.modalContainer} onPress={() => setProfileModalVisible(false)}>
-          <View style={styles.modalView}>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('FriendsScreen');
-            }}>
-              <Text style={styles.modalButtonText}>Add Friend</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('Profile');
-            }}>
-              <Text style={styles.modalButtonText}>View Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('AddHabit');
-            }}>
-              <Text style={styles.modalButtonText}>Add Habit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('Settings');
-            }}>
-              <Text style={styles.modalButtonText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 };
@@ -309,64 +264,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
-  flatListContainer: {
-    paddingBottom: 100, // To avoid overlapping with the navigation bar
+  scrollView: {
+    flex: 1,
   },
   groupCard: {
-    padding: 10,
+    backgroundColor: '#333',
     borderRadius: 10,
-    backgroundColor: '#1c1c1e',
-    margin: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    margin: 10,
+    padding: 10,
+  },
+  groupCardHighlight: {
+    borderColor: 'teal',
+    borderWidth: 2,
+    shadowColor: 'teal',
+    shadowRadius: 10,
+    shadowOpacity: 0.6,
+    shadowOffset: { width: 0, height: 0 },
   },
   groupName: {
+    color: 'white',
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 10,
-    color: '#ccc',
   },
-  groupDetails: {
+  memberContainer: {
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  memberImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 5,
+  },
+  memberName: {
+    color: 'white',
     fontSize: 14,
-    color: '#999',
-  },
-  postGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  postTile: {
-    width: '25%',
-    aspectRatio: 1,
-    padding: 2,
   },
   postImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 5,
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    marginVertical: 5,
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-    backgroundColor: '#ccc',
+  noPostText: {
+    color: 'grey',
+    fontSize: 12,
   },
-  noProfilePic: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  noProfilePicText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  iconButton: {
+    marginHorizontal: 2,
   },
   topPillsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20, // Adjust for iOS notch
+    top: Platform.OS === 'ios' ? 50 : 20,
     left: 10,
     right: 10,
     zIndex: 1,
@@ -382,13 +337,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  pillH: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   pillText: {
     color: 'white',
@@ -419,10 +367,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  navText: {
-    fontSize: 18,
-    color: 'white',
-  },
   navCenterItem: {
     alignItems: 'center',
   },
@@ -442,6 +386,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: 'black',
   },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'white',
+  },
   notificationDot: {
     position: 'absolute',
     top: -5,
@@ -450,39 +401,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: 'red',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 20,
-    padding: 10,
-    marginBottom: 10,
-    width: 200,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
 });
 

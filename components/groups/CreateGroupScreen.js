@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { collection, addDoc, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Image } from 'expo-image';
 
@@ -18,10 +18,12 @@ const CreateGroupScreen = ({ navigation }) => {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const friendIds = userSnap.data().friends || [];
-        const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
-        const friendSnaps = await Promise.all(friendQueries);
-        const friendsData = friendSnaps.map((snap) => ({ id: snap.id, ...snap.data() }));
-        setFriends(friendsData);
+        if (friendIds.length > 0) {
+          const friendsQuery = query(collection(db, 'users'), where('uid', 'in', friendIds));
+          const friendSnaps = await getDocs(friendsQuery);
+          const friendsData = friendSnaps.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          setFriends(friendsData);
+        }
       }
     };
 
@@ -37,19 +39,32 @@ const CreateGroupScreen = ({ navigation }) => {
     try {
       const newGroup = {
         name: groupName,
-        description: groupDesc,
         public: isPublic,
-        admins: [auth.currentUser.uid],
-        members: [auth.currentUser.uid, ...selectedFriends.map(friend => friend.id)],
-        streak: 0,
-        type: 'chill',
+        score: 0
       };
 
-      const docRef = await addDoc(collection(db, 'groups'), newGroup);
+      const groupDocRef = await addDoc(collection(db, 'groups'), newGroup);
 
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        groups: arrayUnion(docRef.id)
+      const batch = writeBatch(db);
+
+      batch.set(doc(db, 'groups', groupDocRef.id, 'members', auth.currentUser.uid), {
+        role: 'admin',
+        joined_at: new Date()
       });
+
+      selectedFriends.forEach((friend) => {
+        batch.set(doc(db, 'groups', groupDocRef.id, 'members', friend.id), {
+          role: 'member',
+          joined_at: new Date()
+        });
+      });
+
+      batch.set(doc(db, 'users', auth.currentUser.uid, 'groups', groupDocRef.id), {
+        role: 'admin',
+        joined_at: new Date()
+      });
+
+      await batch.commit();
 
       Alert.alert('Success', 'Group created successfully!');
       navigation.goBack();
@@ -77,7 +92,7 @@ const CreateGroupScreen = ({ navigation }) => {
         style={[styles.friendItem, isSelected && styles.selectedFriendItem]}
         onPress={() => toggleFriendSelection(item)}
       >
-        <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
+        <Image source={{ uri: item.profile_picture }} style={styles.profilePic} />
         <Text style={styles.friendName}>{item.username}</Text>
         {isSelected && <Icon name="check" size={20} color="green" />}
       </TouchableOpacity>
@@ -86,85 +101,80 @@ const CreateGroupScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.headerCard}>
-          <Text style={styles.headerTitle}>Create a Group</Text>
-          <Text style={styles.headerSubtitle}>Enter group name and description below.</Text>
-        </View>
-        <View style={styles.divider} />
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.pickerLabel}>Name:</Text>
-          <TextInput
-            style={styles.input}
-            value={groupName}
-            onChangeText={setGroupName}
-            autoCapitalize="words"
-            placeholder="Group Name"
-            placeholderTextColor="#7e7e7e"
-          />
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.pickerLabel}>Description:</Text>
-          <TextInput
-            style={[styles.input, { height: 100 }]}
-            value={groupDesc}
-            onChangeText={setGroupDesc}
-            multiline
-            numberOfLines={4}
-            placeholder="Group Description"
-            placeholderTextColor="#7e7e7e"
-          />
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Privacy:</Text>
-          <TouchableOpacity
-            style={[styles.optionCard, isPublic ? styles.selectedOptionCard : null]}
-            onPress={() => setIsPublic(!isPublic)}
-          >
-            <View style={styles.optionCardContent}>
-              <Text style={styles.optionCardTitle}>{isPublic ? 'Public Group' : 'Private Group'}</Text>
+      <FlatList
+        data={friends}
+        keyExtractor={item => item.id}
+        renderItem={renderFriendItem}
+        ListHeaderComponent={() => (
+          <>
+            <View style={styles.headerCard}>
+              <Text style={styles.headerTitle}>Create a Group</Text>
+              <Text style={styles.headerSubtitle}>Enter group name and description below.</Text>
             </View>
-            <View style={styles.radioOuterCircle}>
-              {isPublic && <View style={styles.radioInnerCircle} />}
+            <View style={styles.divider} />
+            <View style={styles.inputContainer}>
+              <Text style={styles.pickerLabel}>Name:</Text>
+              <TextInput
+                style={styles.input}
+                value={groupName}
+                onChangeText={setGroupName}
+                autoCapitalize="words"
+                placeholder="Group Name"
+                placeholderTextColor="#7e7e7e"
+              />
             </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.pickerLabel}>Invite Friends:</Text>
-        <FlatList
-          data={friends}
-          keyExtractor={item => item.id}
-          renderItem={renderFriendItem}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
-        />
-
-        <View style={styles.divider} />
-
-        <View style={styles.footerCard}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.saveButton]}
-            onPress={handleCreateGroup}
-          >
-            <Text style={styles.saveButtonText}>Create Group</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.divider} />
+            <View style={styles.inputContainer}>
+              <Text style={styles.pickerLabel}>Description:</Text>
+              <TextInput
+                style={[styles.input, { height: 100 }]}
+                value={groupDesc}
+                onChangeText={setGroupDesc}
+                multiline
+                numberOfLines={4}
+                placeholder="Group Description"
+                placeholderTextColor="#7e7e7e"
+              />
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.pickerContainer}>
+              <Text style={styles.pickerLabel}>Privacy:</Text>
+              <TouchableOpacity
+                style={[styles.optionCard, isPublic ? styles.selectedOptionCard : null]}
+                onPress={() => setIsPublic(!isPublic)}
+              >
+                <View style={styles.optionCardContent}>
+                  <Text style={styles.optionCardTitle}>{isPublic ? 'Public Group' : 'Private Group'}</Text>
+                </View>
+                <View style={styles.radioOuterCircle}>
+                  {isPublic && <View style={styles.radioInnerCircle} />}
+                </View>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.divider} />
+            <Text style={styles.pickerLabel}>Invite Friends:</Text>
+          </>
+        )}
+        contentContainerStyle={styles.scrollContainer}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        ListFooterComponent={() => (
+          <View style={styles.footerCard}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.saveButton]}
+              onPress={handleCreateGroup}
+            >
+              <Text style={styles.saveButtonText}>Create Group</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
     </KeyboardAvoidingView>
   );
 };

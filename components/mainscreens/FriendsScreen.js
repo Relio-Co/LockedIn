@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,18 @@ import {
   Dimensions,
 } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, updateDoc, arrayRemove, arrayUnion, query, where, getDocs, collection } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayRemove,
+  arrayUnion,
+  query,
+  where,
+  getDocs,
+  collection,
+  writeBatch,
+} from 'firebase/firestore';
 import RNPickerSelect from 'react-native-picker-select';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -35,33 +46,38 @@ function FriendsScreen({ navigation }) {
 
   const fetchFriendsAndInvites = async () => {
     setLoading(true);
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      const userData = userSnap.data();
-      const friendIds = userData.friends || [];
-      const friendRequests = userData.friendRequests || [];
-      const sentRequests = userData.sentRequests || [];
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
 
-      const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
-      const friendSnaps = await Promise.all(friendQueries);
-      const friendsData = friendSnaps.map((snap) => ({ id: snap.id, ...snap.data() }));
-      setFriends(friendsData);
-      setInvites(friendRequests);
-      setOutgoingRequests(sentRequests);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const friendRefs = userData.friends?.map(friendId => doc(db, 'users', friendId)) || [];
+        const friendsData = await Promise.all(friendRefs.map(getDoc));
+        
+        setFriends(friendsData.map(snap => ({ id: snap.id, ...snap.data() })));
+        setInvites(userData.friendRequests || []);
+        setOutgoingRequests(userData.sentRequests || []);
+      }
+    } catch (error) {
+      Alert.alert("Error", error.message);
     }
     setLoading(false);
   };
 
   const fetchGroups = async () => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      const groupIds = userSnap.data().groups || [];
-      const groupQueries = groupIds.map((groupId) => getDoc(doc(db, 'groups', groupId)));
-      const groupSnaps = await Promise.all(groupQueries);
-      const groupsData = groupSnaps.map((snap) => ({ id: snap.id, ...snap.data() }));
-      setGroups(groupsData);
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const groupRefs = userSnap.data().groups?.map(groupId => doc(db, 'groups', groupId)) || [];
+        const groupsData = await Promise.all(groupRefs.map(getDoc));
+
+        setGroups(groupsData.map(snap => ({ id: snap.id, ...snap.data() })));
+      }
+    } catch (error) {
+      Alert.alert("Error", error.message);
     }
   };
 
@@ -71,92 +87,105 @@ function FriendsScreen({ navigation }) {
       return;
     }
     setLoading(true);
-    const usersQuery = query(collection(db, "users"), where("username", "==", usernameToAdd));
-    const querySnapshot = await getDocs(usersQuery);
-    if (querySnapshot.empty) {
+    try {
+      const usersQuery = query(collection(db, "users"), where("username", "==", usernameToAdd));
+      const querySnapshot = await getDocs(usersQuery);
+
+      if (querySnapshot.empty) {
+        setLoading(false);
+        Alert.alert("Error", "No user found with this username.");
+        return;
+      }
+
+      const userDoc = querySnapshot.docs[0];
+      const targetUserId = userDoc.id;
+      const targetUsername = userDoc.data().username;
+      const currentUserId = auth.currentUser.uid;
+
+      if (targetUserId === currentUserId) {
+        setLoading(false);
+        Alert.alert("Error", "You cannot send a friend request to yourself.");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', currentUserId), {
+        sentRequests: arrayUnion({ id: targetUserId, username: targetUsername, timestamp: new Date().toISOString() })
+      });
+      batch.update(doc(db, 'users', targetUserId), {
+        friendRequests: arrayUnion({ from: currentUserId, username: auth.currentUser.displayName, timestamp: new Date().toISOString() })
+      });
+
+      await batch.commit();
       setLoading(false);
-      Alert.alert("Error", "No user found with this username.");
-      return;
-    }
-
-    const userDoc = querySnapshot.docs[0];
-    const targetUserId = userDoc.id;
-    if (targetUserId === auth.currentUser.uid) {
+      Alert.alert("Success", "Friend request sent.");
+      setUsernameToAdd('');
+      fetchFriendsAndInvites();
+    } catch (error) {
       setLoading(false);
-      Alert.alert("Error", "You cannot send a friend request to yourself.");
-      return;
+      Alert.alert("Error", error.message);
     }
+  };
 
-    const targetUserRef = doc(db, 'users', targetUserId);
-    const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-    const currentUserSnap = await getDoc(currentUserRef);
-    const currentUserData = currentUserSnap.data();
+  const handleFriendRequest = async (request, accept) => {
+    setLoading(true);
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const friendUserRef = doc(db, 'users', request.from);
+      const batch = writeBatch(db);
 
-    if (currentUserData.friends && currentUserData.friends.includes(targetUserId)) {
-      setLoading(false);
-      Alert.alert("Error", "This user is already your friend.");
-      return;
+      if (accept) {
+        batch.update(currentUserRef, {
+          friends: arrayUnion(request.from),
+          friendRequests: arrayRemove(request),
+        });
+        batch.update(friendUserRef, {
+          friends: arrayUnion(auth.currentUser.uid)
+        });
+      } else {
+        batch.update(currentUserRef, {
+          friendRequests: arrayRemove(request)
+        });
+      }
+
+      await batch.commit();
+      fetchFriendsAndInvites();
+    } catch (error) {
+      Alert.alert("Error", error.message);
     }
-
-    await updateDoc(currentUserRef, {
-      sentRequests: arrayUnion({ id: targetUserId, username: userDoc.data().username, timestamp: new Date().toISOString() })
-    });
-
-    await updateDoc(targetUserRef, {
-      friendRequests: arrayUnion({ from: auth.currentUser.uid, username: currentUserData.username, timestamp: new Date().toISOString() })
-    });
-
     setLoading(false);
-    Alert.alert("Success", "Friend request sent.");
-    setUsernameToAdd('');
-    fetchFriendsAndInvites();
-  };
-
-  const acceptFriendRequest = async (request) => {
-    const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-    const friendUserRef = doc(db, 'users', request.from);
-
-    await updateDoc(currentUserRef, {
-      friends: arrayUnion(request.from),
-      friendRequests: arrayRemove(request),
-      sentRequests: arrayRemove({ id: request.from })
-    });
-    await updateDoc(friendUserRef, {
-      friends: arrayUnion(auth.currentUser.uid)
-    });
-
-    fetchFriendsAndInvites();
-  };
-
-  const denyFriendRequest = async (request) => {
-    const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-    await updateDoc(currentUserRef, {
-      friendRequests: arrayRemove(request)
-    });
-    fetchFriendsAndInvites();
   };
 
   const removeFriend = async (friendId) => {
-    const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-    const friendUserRef = doc(db, 'users', friendId);
+    setLoading(true);
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const friendUserRef = doc(db, 'users', friendId);
+      const batch = writeBatch(db);
 
-    await updateDoc(currentUserRef, {
-      friends: arrayRemove(friendId)
-    });
-    await updateDoc(friendUserRef, {
-      friends: arrayRemove(auth.currentUser.uid)
-    });
+      batch.update(currentUserRef, { friends: arrayRemove(friendId) });
+      batch.update(friendUserRef, { friends: arrayRemove(auth.currentUser.uid) });
 
-    fetchFriendsAndInvites();
+      await batch.commit();
+      fetchFriendsAndInvites();
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    }
+    setLoading(false);
   };
 
   const blockUser = async (friendId) => {
-    const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-    await updateDoc(currentUserRef, {
-      blockedUsers: arrayUnion(friendId)
-    });
-
-    removeFriend(friendId);
+    setLoading(true);
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(currentUserRef, {
+        blockedUsers: arrayUnion(friendId)
+      });
+      removeFriend(friendId);
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    }
+    setLoading(false);
   };
 
   const inviteToGroup = async (friendId) => {
@@ -164,13 +193,17 @@ function FriendsScreen({ navigation }) {
       Alert.alert("Error", "Please select a group to invite to.");
       return;
     }
-
-    const groupRef = doc(db, 'groups', selectedGroup);
-    await updateDoc(groupRef, {
-      members: arrayUnion(friendId)
-    });
-
-    Alert.alert("Success", "Friend invited to the group.");
+    setLoading(true);
+    try {
+      const groupRef = doc(db, 'groups', selectedGroup);
+      await updateDoc(groupRef, {
+        [`members.${friendId}`]: { role: 'member', joined_at: new Date().toISOString() }
+      });
+      Alert.alert("Success", "Friend invited to the group.");
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    }
+    setLoading(false);
   };
 
   const renderFriendItem = ({ item }) => (
@@ -204,10 +237,10 @@ function FriendsScreen({ navigation }) {
     <View style={styles.inviteCard}>
       <Text style={styles.cardText}>{item.username}</Text>
       <View style={styles.cardFooter}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => acceptFriendRequest(item)}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleFriendRequest(item, true)}>
           <Text style={styles.actionButtonText}>Accept</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => denyFriendRequest(item)}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleFriendRequest(item, false)}>
           <Text style={styles.actionButtonText}>Deny</Text>
         </TouchableOpacity>
       </View>

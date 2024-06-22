@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, addDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { Image } from 'expo-image';
 
 function NotificationsScreen() {
@@ -32,12 +32,19 @@ function NotificationsScreen() {
         const currentUserRef = doc(db, 'users', auth.currentUser.uid);
         const friendUserRef = doc(db, 'users', request.from);
 
-        await updateDoc(currentUserRef, {
-            friends: arrayUnion(request.from),
-            friendRequests: arrayRemove(request),
+        // Update the friends subcollection for both users
+        await addDoc(collection(currentUserRef, 'friends'), {
+            friend_user_id: request.from,
+            friend_since: new Date(),
         });
-        await updateDoc(friendUserRef, {
-            friends: arrayUnion(auth.currentUser.uid),
+        await addDoc(collection(friendUserRef, 'friends'), {
+            friend_user_id: auth.currentUser.uid,
+            friend_since: new Date(),
+        });
+
+        // Remove the friend request
+        await updateDoc(currentUserRef, {
+            friendRequests: arrayRemove(request),
         });
 
         fetchInvites();
@@ -58,12 +65,21 @@ function NotificationsScreen() {
         const currentUserRef = doc(db, 'users', auth.currentUser.uid);
         const groupRef = doc(db, 'groups', groupId);
 
-        await updateDoc(currentUserRef, {
-            groups: arrayUnion(groupId),
-            groupsInvitedTo: arrayRemove(groupId),
+        // Update the groups subcollection for the user and the members subcollection for the group
+        await addDoc(collection(currentUserRef, 'groups'), {
+            group_id: groupId,
+            role: 'member',
+            joined_at: new Date(),
         });
-        await updateDoc(groupRef, {
-            members: arrayUnion(auth.currentUser.uid),
+        await addDoc(collection(groupRef, 'members'), {
+            user_id: auth.currentUser.uid,
+            role: 'member',
+            joined_at: new Date(),
+        });
+
+        // Remove the group invite
+        await updateDoc(currentUserRef, {
+            groupsInvitedTo: arrayRemove(groupId),
         });
 
         fetchInvites();

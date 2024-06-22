@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, SafeAreaView } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs, limit, startAfter } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -16,10 +16,10 @@ function ProfileScreen({ navigation }) {
   const [name, setName] = useState('John Doe');
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [posts, setPosts] = useState([]);
-  const [streaks, setStreaks] = useState({});
   const [groupStreaks, setGroupStreaks] = useState({});
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastPost, setLastPost] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -34,18 +34,13 @@ function ProfileScreen({ navigation }) {
         setUsername(userData.username);
         setName(userData.name);
         setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-        setStreaks({
-          streakScore: userData.streakScore,
-          highestGlobalStreak: userData.highestGlobalStreak,
-        });
-        setGroups(userData.groups || []);
-        await fetchGroupNames(userData.groupStreaks || {});
-        
-        // Fetch user's posts
-        const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', auth.currentUser.uid));
-        const postsSnap = await getDocs(postsQuery);
-        const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPosts(postsData);
+        const groupsRef = collection(userRef, 'groups');
+        const groupsSnap = await getDocs(groupsRef);
+        const groupsData = groupsSnap.docs.map(doc => doc.id);
+        setGroups(groupsData);
+
+        fetchPosts();
+        await fetchStreaks(groupsData);
       }
       setLoading(false);
     } catch (error) {
@@ -54,20 +49,35 @@ function ProfileScreen({ navigation }) {
     }
   };
 
-  const fetchGroupNames = async (groupStreaks) => {
+  const fetchPosts = async (paginate = false) => {
+    try {
+      let postsQuery = query(collection(db, 'posts'), where('created_by', '==', auth.currentUser.uid), limit(10));
+      if (paginate && lastPost) {
+        postsQuery = query(postsQuery, startAfter(lastPost));
+      }
+      const postsSnap = await getDocs(postsQuery);
+      const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPosts(prevPosts => paginate ? [...prevPosts, ...postsData] : postsData);
+      setLastPost(postsSnap.docs[postsSnap.docs.length - 1]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch posts');
+    }
+  };
+
+  const fetchStreaks = async (groups) => {
     try {
       const groupNames = {};
-      const groupIds = Object.keys(groupStreaks);
-      for (const groupId of groupIds) {
+      const fetchGroupPromises = groups.map(async (groupId) => {
         const groupRef = doc(db, 'groups', groupId);
         const groupSnap = await getDoc(groupRef);
         if (groupSnap.exists()) {
           groupNames[groupId] = {
             name: groupSnap.data().name,
-            ...groupStreaks[groupId],
+            streakScore: groupSnap.data().score,
           };
         }
-      }
+      });
+      await Promise.all(fetchGroupPromises);
       setGroupStreaks(groupNames);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch group names');
@@ -174,9 +184,9 @@ function ProfileScreen({ navigation }) {
     });
     
     const activityMap = posts.reduce((acc, post) => {
-      const date = post.createdAt.toDate().toISOString().split('T')[0];
+      const date = post.created_at.toDate().toISOString().split('T')[0];
       if (!acc[date]) acc[date] = [];
-      acc[date].push(post.imageUrl);
+      acc[date].push(post.image_url);
       return acc;
     }, {});
 
@@ -200,18 +210,10 @@ function ProfileScreen({ navigation }) {
     return sortedGroups.map(([groupId, groupData]) => (
       <TouchableOpacity key={groupId} style={styles.groupItem} onPress={() => navigation.navigate('GroupDetails', { groupId })}>
         <Icon name="users" size={20} color="orange" />
-        <Text style={styles.groupName}>{groupData.name}: {groupData.streakScore} days (Highest: {groupData.highestStreak} days)</Text>
+        <Text style={styles.groupName}>{groupData.name}: {groupData.streakScore} days</Text>
       </TouchableOpacity>
     ));
   };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00b4d8" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -247,14 +249,6 @@ function ProfileScreen({ navigation }) {
             <Text style={styles.statValue}>{posts.length}</Text>
             <Text style={styles.statLabel}>Posts</Text>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{streaks.streakScore}</Text>
-            <Text style={styles.statLabel}>Current Streak</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{streaks.highestGlobalStreak}</Text>
-            <Text style={styles.statLabel}>Highest Streak</Text>
-          </View>
         </View>
         <View style={styles.groupsContainer}>
           <Text style={styles.groupsTitle}>Groups</Text>
@@ -266,6 +260,9 @@ function ProfileScreen({ navigation }) {
             {getActivityGrid()}
           </View>
         </View>
+        <TouchableOpacity onPress={() => fetchPosts(true)} style={styles.loadMoreButton}>
+          <Text style={styles.loadMoreText}>Load More Posts</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -280,11 +277,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
     paddingTop: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -397,6 +389,17 @@ const styles = StyleSheet.create({
   activityImage: {
     width: '100%',
     height: '100%',
+  },
+  loadMoreButton: {
+    padding: 15,
+    alignItems: 'center',
+    backgroundColor: '#00b4d8',
+    margin: 20,
+    borderRadius: 10,
+  },
+  loadMoreText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });
 

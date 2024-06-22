@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, deleteField } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -17,33 +17,40 @@ const GroupFeedScreen = ({ route }) => {
 
   useEffect(() => {
     async function fetchGroupAndPosts() {
-      const groupRef = doc(db, 'groups', groupId);
-      const groupSnap = await getDoc(groupRef);
+      try {
+        const groupRef = doc(db, 'groups', groupId);
+        const groupSnap = await getDoc(groupRef);
 
-      if (groupSnap.exists()) {
-        const groupData = groupSnap.data();
-        setGroup(groupData);
+        if (groupSnap.exists()) {
+          const groupData = groupSnap.data();
+          setGroup(groupData);
 
-        const postIds = groupData.posts || [];
-        const postsData = await Promise.all(
-          postIds.map(async postId => {
-            const postRef = doc(db, 'posts', postId);
-            const postSnap = await getDoc(postRef);
-            if (postSnap.exists()) {
-              const postData = postSnap.data();
-              const userRef = doc(db, 'users', postData.createdBy);
+          const postsCollectionRef = collection(groupRef, 'posts');
+          const postsSnap = await getDocs(postsCollectionRef);
+
+          const postsData = await Promise.all(
+            postsSnap.docs.map(async postDoc => {
+              const postData = postDoc.data();
+              const userRef = doc(db, 'users', postData.created_by);
               const userSnap = await getDoc(userRef);
-              return userSnap.exists() ? { id: postSnap.id, ...postData, createdByUsername: userSnap.data().username } : null;
-            }
-            return null;
-          })
-        );
-        setPosts(postsData.filter(post => post !== null));
-      } else {
-        Alert.alert("Group not found", "The group you are trying to view does not exist.");
-        navigation.goBack();
+
+              return userSnap.exists()
+                ? { id: postDoc.id, ...postData, created_by_username: userSnap.data().username }
+                : null;
+            })
+          );
+
+          setPosts(postsData.filter(post => post !== null));
+        } else {
+          Alert.alert('Group Not Found', 'The group you are trying to view does not exist.');
+          navigation.goBack();
+        }
+      } catch (error) {
+        console.error('Error fetching group and posts:', error);
+        Alert.alert('Error', 'Failed to load group data.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchGroupAndPosts();
@@ -55,56 +62,52 @@ const GroupFeedScreen = ({ route }) => {
       const groupRef = doc(db, 'groups', groupId);
 
       await updateDoc(userRef, {
-        groups: arrayUnion(groupId)
+        [`groups.${groupId}`]: { role: 'member', joined_at: new Date() },
       });
-
       await updateDoc(groupRef, {
-        members: arrayUnion(auth.currentUser.uid)
+        [`members.${auth.currentUser.uid}`]: { role: 'member', joined_at: new Date() },
       });
 
       Alert.alert('Success', 'You have joined the group.');
       setGroup(prevGroup => ({
         ...prevGroup,
-        members: [...prevGroup.members, auth.currentUser.uid]
+        members: { ...prevGroup.members, [auth.currentUser.uid]: { role: 'member', joined_at: new Date() } },
       }));
     } catch (error) {
-      Alert.alert('Error', 'Failed to join the group');
+      console.error('Error joining group:', error);
+      Alert.alert('Error', 'Failed to join the group.');
     }
   };
 
   const leaveGroup = async () => {
-    Alert.alert(
-      'Leave Group',
-      'Are you sure you want to leave this group?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Leave',
-          onPress: async () => {
+    Alert.alert('Leave Group', 'Are you sure you want to leave this group?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Leave',
+        onPress: async () => {
+          try {
             const groupRef = doc(db, 'groups', groupId);
             const userRef = doc(db, 'users', auth.currentUser.uid);
 
-            await updateDoc(groupRef, {
-              members: arrayRemove(auth.currentUser.uid)
-            });
+            await updateDoc(groupRef, { [`members.${auth.currentUser.uid}`]: deleteField() });
+            await updateDoc(userRef, { [`groups.${groupId}`]: deleteField() });
 
-            await updateDoc(userRef, {
-              groups: arrayRemove(groupId)
-            });
-
-            Alert.alert("Success", "You have left the group.");
+            Alert.alert('Success', 'You have left the group.');
             navigation.goBack();
+          } catch (error) {
+            console.error('Error leaving group:', error);
+            Alert.alert('Error', 'Failed to leave the group.');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
-  const isAdmin = group && group.admins && group.admins.includes(auth.currentUser.uid);
-  const isMember = group && group.members && group.members.includes(auth.currentUser.uid);
+  const isAdmin = group && group.members && group.members[auth.currentUser.uid]?.role === 'admin';
+  const isMember = group && group.members && group.members[auth.currentUser.uid];
 
   if (loading) {
     return (
@@ -122,11 +125,10 @@ const GroupFeedScreen = ({ route }) => {
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <View style={styles.postContainer}>
-              <Image source={{ uri: item.imageUrl }} style={styles.image} contentFit="cover" />
+              <Image source={{ uri: item.image_url }} style={styles.image} contentFit="cover" transition={1000} />
               <View style={styles.overlay}>
-                <Text style={styles.postTitle}>{item.title || 'No Title'}</Text>
-                <Text style={styles.postContent}>{item.content}</Text>
-                <Text style={styles.postedBy}>Posted by: {item.createdByUsername}</Text>
+                <Text style={styles.postTitle}>{item.caption || 'No Title'}</Text>
+                <Text style={styles.postedBy}>Posted by: {item.created_by_username}</Text>
               </View>
             </View>
           )}
@@ -137,12 +139,12 @@ const GroupFeedScreen = ({ route }) => {
       ) : (
         <View style={styles.joinContainer}>
           <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.groupDescription}>{group.description}</Text>
           <TouchableOpacity style={styles.joinButton} onPress={joinGroup}>
             <Text style={styles.joinButtonText}>Join Group</Text>
           </TouchableOpacity>
         </View>
       )}
+
       {isMember && (
         <View style={styles.iconBar}>
           <TouchableOpacity onPress={() => navigation.navigate('Leaderboard', { groupId })}>
@@ -156,7 +158,9 @@ const GroupFeedScreen = ({ route }) => {
               <Icon name="edit" size={24} color="white" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => navigation.navigate('GroupMembers', { groupId, isAdmin })}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('GroupMembers', { groupId, isAdmin })}
+          >
             <Icon name="users" size={24} color="white" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('GroupChat', { groupId })}>
@@ -206,11 +210,6 @@ const styles = StyleSheet.create({
     color: 'white',
     marginBottom: 10,
   },
-  postContent: {
-    fontSize: 16,
-    color: 'white',
-    marginBottom: 10,
-  },
   postedBy: {
     fontSize: 14,
     fontStyle: 'italic',
@@ -227,12 +226,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 20,
-  },
-  groupDescription: {
-    fontSize: 18,
-    color: 'grey',
-    marginBottom: 40,
-    textAlign: 'center',
   },
   joinButton: {
     paddingVertical: 15,

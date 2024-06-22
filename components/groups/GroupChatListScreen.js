@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { auth, db, rtdb } from '../../firebaseConfig';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayRemove } from 'firebase/firestore';
-import { ref as sRef, onValue, get } from 'firebase/database';
+import { ref as sRef, get } from 'firebase/database';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
@@ -11,7 +11,6 @@ const GroupChatListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allChats, setAllChats] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
-  const [ownedChatbots, setOwnedChatbots] = useState([]);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -21,7 +20,6 @@ const GroupChatListScreen = () => {
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
           setUserProfile(userSnap.data());
-          setOwnedChatbots(userSnap.data().items?.chatbot || []);
         }
       } catch (error) {
         console.error("Error fetching user profile: ", error);
@@ -31,32 +29,26 @@ const GroupChatListScreen = () => {
 
     const fetchChats = async () => {
       try {
-        const groupChatsQuery = query(collection(db, 'groups'), where('members', 'array-contains', auth.currentUser.uid));
-        const privateChatsQuery = query(collection(db, 'privateChats'), where('members', 'array-contains', auth.currentUser.uid));
-
-        const [groupChatsSnap, privateChatsSnap] = await Promise.all([getDocs(groupChatsQuery), getDocs(privateChatsQuery)]);
+        const groupChatsQuery = query(collection(db, 'groups'), where(`members.${auth.currentUser.uid}.role`, 'in', ['member', 'admin']));
+        
+        const groupChatsSnap = await getDocs(groupChatsQuery);
 
         const groupChatsData = groupChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: true }));
-        const privateChatsData = privateChatsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), isGroupChat: false }));
 
-        const allChatsData = [...groupChatsData, ...privateChatsData];
-
-        const updatedChats = await Promise.all(allChatsData.map(async (chat) => {
-          if (chat.isGroupChat) {
-            const messagesRef = sRef(rtdb, `groupChats/${chat.id}/messages`);
-            try {
-              const snapshot = await get(messagesRef);
-              const messagesData = snapshot.val();
-              if (messagesData) {
-                const parsedMessages = Object.keys(messagesData).map(key => messagesData[key]);
-                chat.lastMessage = parsedMessages[parsedMessages.length - 1];
-              } else {
-                chat.lastMessage = null;
-              }
-            } catch (error) {
-              console.error(`Error fetching messages for chat ${chat.id}: `, error);
+        const updatedChats = await Promise.all(groupChatsData.map(async (chat) => {
+          const messagesRef = sRef(rtdb, `groupChats/${chat.id}/messages`);
+          try {
+            const snapshot = await get(messagesRef);
+            const messagesData = snapshot.val();
+            if (messagesData) {
+              const parsedMessages = Object.keys(messagesData).map(key => messagesData[key]);
+              chat.lastMessage = parsedMessages[parsedMessages.length - 1];
+            } else {
               chat.lastMessage = null;
             }
+          } catch (error) {
+            console.error(`Error fetching messages for chat ${chat.id}: `, error);
+            chat.lastMessage = null;
           }
           return chat;
         }));
@@ -82,9 +74,9 @@ const GroupChatListScreen = () => {
     }
   };
 
-  const handleMuteChat = async (chatId, isGroupChat) => {
+  const handleMuteChat = async (chatId) => {
     try {
-      const chatRef = doc(db, isGroupChat ? 'groups' : 'privateChats', chatId);
+      const chatRef = doc(db, 'groups', chatId);
       await updateDoc(chatRef, { muted: true });
       Alert.alert('Muted', 'You have muted this chat.');
     } catch (error) {
@@ -93,7 +85,7 @@ const GroupChatListScreen = () => {
     }
   };
 
-  const handleLeaveChat = async (chatId, isGroupChat) => {
+  const handleLeaveChat = async (chatId) => {
     Alert.alert(
       "Leave Chat",
       "Are you sure you want to leave this chat?",
@@ -104,8 +96,8 @@ const GroupChatListScreen = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              const chatRef = doc(db, isGroupChat ? 'groups' : 'privateChats', chatId);
-              await updateDoc(chatRef, { members: arrayRemove(auth.currentUser.uid) });
+              const chatRef = doc(db, 'groups', chatId);
+              await updateDoc(chatRef, { [`members.${auth.currentUser.uid}`]: arrayRemove(auth.currentUser.uid) });
               setAllChats(allChats.filter(chat => chat.id !== chatId));
               Alert.alert('Left Chat', 'You have left this chat.');
             } catch (error) {
@@ -123,20 +115,20 @@ const GroupChatListScreen = () => {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('GroupChat', { groupId: item.id })}>
         <View style={styles.chatContainer}>
-          <Image style={styles.avatar} source={{ uri: item.profilePicture || 'https://via.placeholder.com/50' }} />
+          <Image style={styles.avatar} source={{ uri: item.profile_picture || 'https://via.placeholder.com/50' }} />
           <View style={styles.chatInfo}>
             <Text style={styles.chatName}>
-              {isGroupChat && item.groupIcon ? `${item.groupIcon} ` : ''}{item.name}
+              {item.name}
             </Text>
             <Text style={styles.lastMessage}>
               {item.lastMessage ? `${item.lastMessage.user.username}: ${item.lastMessage.text}` : 'No messages yet'}
             </Text>
           </View>
           <View style={styles.chatActions}>
-            <TouchableOpacity onPress={() => handleMuteChat(item.id, isGroupChat)}>
+            <TouchableOpacity onPress={() => handleMuteChat(item.id)}>
               <Icon name="volume-off" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleLeaveChat(item.id, isGroupChat)} style={styles.leaveButton}>
+            <TouchableOpacity onPress={() => handleLeaveChat(item.id)} style={styles.leaveButton}>
               <Icon name="sign-out" size={24} color="white" />
             </TouchableOpacity>
           </View>
@@ -253,4 +245,3 @@ const styles = StyleSheet.create({
 });
 
 export default GroupChatListScreen;
-  

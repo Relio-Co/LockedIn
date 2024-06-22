@@ -1,64 +1,60 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from "expo-image";
+import { Image } from 'expo-image';
 
 const { width, height } = Dimensions.get('window');
-const blurhash = "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
 
 const ImageFeed = ({ posts, loading, navigation }) => {
-  
   const renderPostItem = (item, index) => (
-    <TouchableOpacity 
-      key={`${item.id}-${index}`} 
-      onPress={() => navigation.navigate('PostDetail', { postId: item.id })} 
-      style={styles.postItem}
-    >
-      <Image
-        style={styles.postImage}
-        source={{ uri: item.imageUrl }}
-        placeholder={{ uri: blurhash }}
-        contentFit="cover"
-        transition={1000}
-      />
-      <View style={styles.postDetails}>
-        <Text style={styles.posterName}>
-          <Ionicons name="flame-outline" size={16} color="orange" /> {item.streak} - {item.username}
-        </Text>
-        <Text style={styles.postCaption}>{item.caption}</Text>
-        <View style={styles.groupPill}>
-          <Text style={styles.groupPillText}>{item.group}</Text>
+    <View key={`${item.id}-${index}`} style={styles.postContainer}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+        style={styles.postItem}
+      >
+        <Image
+          style={styles.postImage}
+          source={{ uri: item.image_url }}
+          contentFit="cover"
+          transition={1000}
+        />
+        <View style={styles.postDetails}>
+          <Text style={styles.posterName}>
+            <Ionicons name="flame-outline" size={16} color="orange" /> {item.username}
+          </Text>
+          <Text style={styles.postCaption}>{item.caption}</Text>
+          <View style={styles.groupPill}>
+            <Text style={styles.groupPillText}>{item.group}</Text>
+          </View>
+          <Text style={styles.commentCount}>{item.comments} comments</Text>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 
-  const renderPosts = () => (
+  return (
     <View style={styles.postsContainer}>
       {posts.map((item, index) => renderPostItem(item, index))}
       {loading && <ActivityIndicator size="large" color="#00b4d8" />}
     </View>
   );
-
-  return <View>{renderPosts()}</View>;
 };
 
 const styles = StyleSheet.create({
   postsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flex: 1,
+    padding: 10,
+  },
+  postContainer: {
+    marginBottom: 20,
   },
   postItem: {
-    width: (width / 2) - 10,
-    height: (height / 2) - 10,
-    margin: 5,
     borderRadius: 8,
     overflow: 'hidden',
   },
   postImage: {
-    width: '100%',
-    height: '100%',
+    width: width - 20,
+    height: width - 20,
     borderRadius: 8,
   },
   postDetails: {
@@ -77,6 +73,11 @@ const styles = StyleSheet.create({
   postCaption: {
     color: 'white',
     marginVertical: 5,
+  },
+  commentCount: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 5,
   },
   groupPill: {
     backgroundColor: 'gray',

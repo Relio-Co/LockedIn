@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,12 +42,12 @@ const GroupsScreen = () => {
     setLoading(true);
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
+      const userDocSnap = await getDoc(userRef);
       let userGroups = [];
-      if (docSnap.exists()) {
-        const groupIds = docSnap.data().groups || [];
-        const groupsQuery = await Promise.all(groupIds.map(groupId => getDoc(doc(db, 'groups', groupId))));
-        userGroups = groupsQuery.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      if (userDocSnap.exists()) {
+        const groupRefs = collection(userRef, 'groups');
+        const groupDocs = await getDocs(groupRefs);
+        userGroups = groupDocs.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         setGroups(userGroups);
         await AsyncStorage.setItem('userGroups', JSON.stringify(userGroups));
       }
@@ -69,9 +69,9 @@ const GroupsScreen = () => {
   const fetchUserHabits = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const habits = docSnap.data().habits || [];
+      const userDocSnap = await getDoc(userRef);
+      if (userDocSnap.exists()) {
+        const habits = userDocSnap.data().habits || [];
         setUserHabits(habits);
       }
     } catch (error) {

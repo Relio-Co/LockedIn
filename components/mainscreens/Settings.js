@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Switch, ScrollView, StyleSheet, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, runTransaction } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 import { sendEmailVerification, deleteUser } from 'firebase/auth';
 
@@ -12,14 +12,18 @@ function SettingsScreen() {
     emailNotifications: false,
     privateAccount: false,
   });
+  const userRef = doc(db, 'users', auth.currentUser.uid);
 
   // Fetch user settings from Firestore
   useEffect(() => {
     async function fetchSettings() {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        setSettings(docSnap.data());
+      try {
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+          setSettings(docSnap.data());
+        }
+      } catch (error) {
+        console.error("Error fetching settings: ", error);
       }
     }
     fetchSettings();
@@ -27,16 +31,22 @@ function SettingsScreen() {
 
   // Function to update user settings in Firestore
   const saveSettings = async () => {
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    await updateDoc(userRef, settings);
-    alert('Settings updated successfully!');
+    try {
+      await runTransaction(db, async (transaction) => {
+        transaction.update(userRef, settings);
+      });
+      Alert.alert('Success', 'Settings updated successfully!');
+    } catch (error) {
+      console.error("Error updating settings: ", error);
+      Alert.alert('Error', 'Error updating settings: ' + error.message);
+    }
   };
 
   // Function to send user data via email
   const handleDownloadData = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Placeholder for sending email with user data
-    alert('User data will be sent to your email.');
+    Alert.alert('Info', 'User data will be sent to your email.');
   };
 
   // Function to handle account deletion
@@ -55,9 +65,10 @@ function SettingsScreen() {
           onPress: async () => {
             try {
               await deleteUser(auth.currentUser);
-              alert('Account deleted successfully.');
+              Alert.alert('Success', 'Account deleted successfully.');
             } catch (error) {
-              alert('Error deleting account: ' + error.message);
+              console.error("Error deleting account: ", error);
+              Alert.alert('Error', 'Error deleting account: ' + error.message);
             }
           },
           style: "destructive"

@@ -5,7 +5,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Picker } from '@react-native-picker/picker';
 import { storage, db, auth } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, addDoc, collection, query, getDoc, getDocs, where, setDoc } from 'firebase/firestore';
 
 function PostScreen({ route }) {
   const { groupId, image: initialImage } = route.params || {};
@@ -18,16 +18,27 @@ function PostScreen({ route }) {
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
+        const q = query(collection(db, "groups"));
         const snapshot = await getDocs(q);
-        const groupsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          public: doc.data().public
+
+        const groupsData = await Promise.all(snapshot.docs.map(async (groupDoc) => {
+          const membersSnapshot = await getDocs(collection(groupDoc.ref, 'members'));
+          const isMember = membersSnapshot.docs.some(doc => doc.id === auth.currentUser.uid);
+          if (isMember) {
+            return {
+              id: groupDoc.id,
+              name: groupDoc.data().name,
+              public: groupDoc.data().public
+            };
+          }
+          return null;
         }));
-        setGroups(groupsData);
-        if (!selectedGroup && groupsData.length > 0 && !groupId) {
-          setSelectedGroup(groupsData[0].id);
+
+        const filteredGroups = groupsData.filter(group => group !== null);
+        setGroups(filteredGroups);
+
+        if (!selectedGroup && filteredGroups.length > 0 && !groupId) {
+          setSelectedGroup(filteredGroups[0].id);
         }
       } catch (error) {
         console.error("Error fetching groups:", error);
@@ -87,22 +98,20 @@ function PostScreen({ route }) {
       const imageUrl = await getDownloadURL(fileRef);
 
       const newPost = {
-        imageUrl,
+        image_url: imageUrl,
         caption,
-        createdBy: auth.currentUser.uid,
-        createdByUsername: username,
-        createdAt: new Date(),
-        groupName: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
-        groupId: selectedGroup,
-        isPublic: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
+        created_by: auth.currentUser.uid,
+        created_by_username: username,
+        created_at: new Date(),
+        group_name: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
+        group_id: selectedGroup,
+        is_public: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
       };
 
       const newPostRef = await addDoc(collection(db, 'posts'), newPost);
 
       if (selectedGroup) {
-        await updateDoc(doc(db, 'groups', selectedGroup), {
-          posts: arrayUnion(newPostRef.id)
-        });
+        await setDoc(doc(collection(db, 'groups', selectedGroup, 'posts'), newPostRef.id), { post_id: newPostRef.id });
       }
 
       Alert.alert('Success', 'Post uploaded successfully!');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import { db, auth } from '../../firebaseConfig';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 function UserProfileScreen({ route, navigation }) {
@@ -28,7 +28,7 @@ function UserProfileScreen({ route, navigation }) {
         setUser(userData);
         
         // Fetch user's posts
-        const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', userId));
+        const postsQuery = query(collection(db, 'posts'), where('created_by', '==', userId));
         const postsSnap = await getDocs(postsQuery);
         const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPosts(postsData);
@@ -43,11 +43,9 @@ function UserProfileScreen({ route, navigation }) {
   const checkFriendStatus = async () => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-      const currentUserSnap = await getDoc(currentUserRef);
-      if (currentUserSnap.exists()) {
-        const currentUserData = currentUserSnap.data();
-        setIsFriend(currentUserData.friends && currentUserData.friends.includes(userId));
-      }
+      const friendsRef = collection(currentUserRef, 'friends');
+      const friendDoc = await getDoc(doc(friendsRef, userId));
+      setIsFriend(friendDoc.exists());
     } catch (error) {
       console.error("Error checking friend status:", error);
     }
@@ -56,8 +54,9 @@ function UserProfileScreen({ route, navigation }) {
   const addFriend = async () => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(currentUserRef, {
-        friends: arrayUnion(userId)
+      const friendsRef = collection(currentUserRef, 'friends');
+      await setDoc(doc(friendsRef, userId), {
+        friend_since: new Date(),
       });
       setIsFriend(true);
       Alert.alert('Friend added successfully!');
@@ -69,9 +68,8 @@ function UserProfileScreen({ route, navigation }) {
   const removeFriend = async () => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(currentUserRef, {
-        friends: arrayRemove(userId)
-      });
+      const friendsRef = collection(currentUserRef, 'friends');
+      await deleteDoc(doc(friendsRef, userId));
       setIsFriend(false);
       Alert.alert('Friend removed successfully!');
     } catch (error) {
@@ -84,7 +82,7 @@ function UserProfileScreen({ route, navigation }) {
       {user ? (
         <>
           <View style={styles.header}>
-            <Image source={{ uri: user.profilePicture || 'https://via.placeholder.com/100' }} style={styles.profilePicture} />
+            <Image source={{ uri: user.profile_picture || 'https://via.placeholder.com/100' }} style={styles.profilePicture} />
             <Text style={styles.username}>{user.username}</Text>
           </View>
           <View style={styles.stats}>
@@ -97,7 +95,7 @@ function UserProfileScreen({ route, navigation }) {
             renderItem={({ item }) => (
               <View style={styles.post}>
                 <Text style={styles.postCaption}>{item.caption}</Text>
-                {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.postImage} />}
+                {item.image_url && <Image source={{ uri: item.image_url }} style={styles.postImage} />}
               </View>
             )}
             ListHeaderComponent={() => <Text style={styles.postsTitle}>Posts</Text>}

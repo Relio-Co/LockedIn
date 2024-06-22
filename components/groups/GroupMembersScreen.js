@@ -13,23 +13,26 @@ function GroupMembersScreen({ route }) {
     const [userFriendsIds, setUserFriendsIds] = useState([]);
 
     useEffect(() => {
-        fetchMembers();
+        fetchGroupData();
         fetchFriends();
     }, [groupId]);
 
-    const fetchMembers = async () => {
+    const fetchGroupData = async () => {
         const groupRef = doc(db, 'groups', groupId);
         const groupSnap = await getDoc(groupRef);
         if (groupSnap.exists()) {
             const groupData = groupSnap.data();
-            const membersIds = groupData.members;
-            const membersData = await Promise.all(membersIds.map(async memberId => {
-                const userRef = doc(db, 'users', memberId);
+            const membersQuery = collection(db, 'groups', groupId, 'members');
+            const membersSnap = await getDocs(membersQuery);
+            const membersData = await Promise.all(membersSnap.docs.map(async memberDoc => {
+                const userId = memberDoc.id;
+                const memberData = memberDoc.data();
+                const userRef = doc(db, 'users', userId);
                 const userSnap = await getDoc(userRef);
-                return { id: memberId, ...userSnap.data(), isAdmin: groupData.admins.includes(memberId) };
+                return { id: userId, ...userSnap.data(), role: memberData.role };
             }));
             setMembers(membersData);
-            setIsPrivate(groupData.private);
+            setIsPrivate(groupData.public === false);
         }
     };
 
@@ -37,30 +40,26 @@ function GroupMembersScreen({ route }) {
         const userRef = doc(db, 'users', auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-            const friendIds = userSnap.data().friends || [];
-            setUserFriendsIds(friendIds);
-            const friendQueries = friendIds.map((friendId) => getDoc(doc(db, 'users', friendId)));
-            const friendSnaps = await Promise.all(friendQueries);
-            const friendsData = friendSnaps.map((snap) => ({ id: snap.id, ...snap.data() }));
+            const friendQueries = collection(db, 'users', auth.currentUser.uid, 'friends');
+            const friendSnaps = await getDocs(friendQueries);
+            const friendsData = friendSnaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setFriends(friendsData);
+            setUserFriendsIds(friendsData.map(friend => friend.id));
         }
     };
 
     const handleAdminToggle = async (memberId) => {
-        const groupRef = doc(db, 'groups', groupId);
-        const groupSnap = await getDoc(groupRef);
-        if (groupSnap.data().admins.includes(memberId)) {
-            await updateDoc(groupRef, { admins: arrayRemove(memberId) });
-        } else {
-            await updateDoc(groupRef, { admins: arrayUnion(memberId) });
-        }
-        fetchMembers();
+        const memberRef = doc(db, 'groups', groupId, 'members', memberId);
+        const memberSnap = await getDoc(memberRef);
+        const newRole = memberSnap.data().role === 'admin' ? 'member' : 'admin';
+        await updateDoc(memberRef, { role: newRole });
+        fetchGroupData();
     };
 
     const handleRemoveMember = async (memberId) => {
-        const groupRef = doc(db, 'groups', groupId);
-        await updateDoc(groupRef, { members: arrayRemove(memberId) });
-        fetchMembers();
+        const memberRef = doc(db, 'groups', groupId, 'members', memberId);
+        await updateDoc(memberRef, { role: arrayRemove(memberId) });
+        fetchGroupData();
     };
 
     const handleInviteUser = async () => {
@@ -76,9 +75,7 @@ function GroupMembersScreen({ route }) {
         const querySnapshot = await getDocs(userQuery);
         if (!querySnapshot.empty) {
             const userId = querySnapshot.docs[0].id;
-            await updateDoc(doc(db, 'users', userId), {
-                groupsInvitedTo: arrayUnion(groupId)
-            });
+            await updateDoc(doc(db, 'groups', groupId, 'members', userId), { role: 'member' });
             Alert.alert("Invitation sent!");
             setUsername('');
         } else {
@@ -95,9 +92,7 @@ function GroupMembersScreen({ route }) {
             Alert.alert("Error", "You cannot invite yourself.");
             return;
         }
-        await updateDoc(doc(db, 'users', friendId), {
-            groupsInvitedTo: arrayUnion(groupId)
-        });
+        await updateDoc(doc(db, 'groups', groupId, 'members', friendId), { role: 'member' });
         Alert.alert("Friend invited to the group.");
     };
 
@@ -106,20 +101,18 @@ function GroupMembersScreen({ route }) {
             Alert.alert("Error", "You cannot add yourself as a friend.");
             return;
         }
-        const currentUserRef = doc(db, 'users', auth.currentUser.uid);
-        await updateDoc(currentUserRef, {
-            friends: arrayUnion(memberId)
-        });
+        const friendRef = doc(db, 'users', auth.currentUser.uid, 'friends', memberId);
+        await setDoc(friendRef, { friend_since: new Date() });
         fetchFriends();
         Alert.alert("Success", "Friend added successfully.");
     };
 
     const renderMemberItem = ({ item }) => (
         <View style={styles.card}>
-            <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
-            <Text style={styles.username}>{item.username} {item.isAdmin ? '(Admin)' : ''}</Text>
+            <Image source={{ uri: item.profile_picture }} style={styles.profilePic} />
+            <Text style={styles.username}>{item.username} {item.role === 'admin' ? '(Admin)' : ''}</Text>
             <TouchableOpacity style={styles.adminButton} onPress={() => handleAdminToggle(item.id)}>
-                <Text style={styles.buttonText}>{item.isAdmin ? 'Remove Admin' : 'Make Admin'}</Text>
+                <Text style={styles.buttonText}>{item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveMember(item.id)}>
                 <Text style={styles.buttonText}>Remove</Text>
@@ -134,7 +127,7 @@ function GroupMembersScreen({ route }) {
 
     const renderFriendItem = ({ item }) => (
         <View style={styles.card}>
-            <Image source={{ uri: item.profilePicture }} style={styles.profilePic} />
+            <Image source={{ uri: item.profile_picture }} style={styles.profilePic} />
             <Text style={styles.username}>{item.username}</Text>
             {item.id !== auth.currentUser.uid && (
                 <TouchableOpacity style={styles.inviteButton} onPress={() => handleInviteFriendToGroup(item.id)}>

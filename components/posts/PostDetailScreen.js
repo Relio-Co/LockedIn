@@ -1,21 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  Alert,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Keyboard,
-  TouchableWithoutFeedback
+  View, Text, FlatList, StyleSheet, Alert, TouchableOpacity,
+  Dimensions, Platform, Modal, TextInput, KeyboardAvoidingView, 
+  Keyboard, TouchableWithoutFeedback
 } from 'react-native';
 import { db, auth, storage } from '../../firebaseConfig';
-import { doc, getDoc, collection, query, getDocs, addDoc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, query, getDocs, addDoc, deleteDoc, updateDoc, orderBy, startAfter, limit, startAt } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
@@ -25,10 +15,13 @@ const { height, width } = Dimensions.get('window');
 
 const blurhash = '|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[';
 
+const pageSize = 10;
+
 const PostDetailScreen = ({ route }) => {
   const { postId } = route.params;
   const [posts, setPosts] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [lastVisiblePost, setLastVisiblePost] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -39,78 +32,165 @@ const PostDetailScreen = ({ route }) => {
   const flatListRef = useRef();
 
   useEffect(() => {
-    async function fetchPosts() {
-      try {
-        const postsQuery = query(collection(db, 'posts'));
-        const postsSnapshot = await getDocs(postsQuery);
-
-        const postsData = await Promise.all(
-          postsSnapshot.docs.map(async (docSnapshot) => {
-            const postData = {
-              id: docSnapshot.id,
-              ...docSnapshot.data(),
-              createdAt: docSnapshot.data().createdAt.toDate(),
-            };
-
-            const userRef = doc(db, 'users', postData.createdBy);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-              postData.username = userSnap.data().username;
-              postData.streakScore = userSnap.data().streakScore;
-              postData.profilePictureUrl = userSnap.data().profilePicture;
-            }
-
-            const groupRef = doc(db, 'groups', postData.groupId);
-            const groupSnap = await getDoc(groupRef);
-            if (groupSnap.exists()) {
-              postData.groupName = groupSnap.data().name;
-            }
-
-            return postData;
-          })
-        );
-
-        setPosts(postsData);
-
-        const initialIndex = postsData.findIndex(post => post.id === postId);
-        setCurrentIndex(initialIndex !== -1 ? initialIndex : 0);
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-      }
-    }
-
-    fetchPosts();
-  }, [postId]);
+    fetchInitialPosts();
+  }, []);
 
   useEffect(() => {
-    async function fetchComments() {
-      if (posts[currentIndex]) {
-        const commentsQuery = query(collection(db, `posts/${posts[currentIndex].id}/comments`));
-        const commentsSnapshot = await getDocs(commentsQuery);
-        const commentsData = await Promise.all(
-          commentsSnapshot.docs.map(async (commentDoc) => {
-            const commentData = {
-              id: commentDoc.id,
-              ...commentDoc.data(),
-              createdAt: commentDoc.data().createdAt.toDate(),
-            };
-
-            const commentUserRef = doc(db, 'users', commentData.userId);
-            const commentUserSnap = await getDoc(commentUserRef);
-            if (commentUserSnap.exists()) {
-              commentData.username = commentUserSnap.data().username;
-              commentData.profilePictureUrl = commentUserSnap.data().profilePicture;
-            }
-            return commentData;
-          })
-        );
-
-        setComments(commentsData);
-      }
+    if (posts.length > 0) {
+      fetchComments(postId);
     }
+  }, [posts]);
 
-    fetchComments();
-  }, [currentIndex, posts]);
+  const fetchInitialPosts = async () => {
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const postRef = doc(db, 'posts', postId);
+      const postSnap = await getDoc(postRef);
+      const postData = {
+        id: postSnap.id,
+        ...postSnap.data(),
+        created_at: postSnap.data().created_at.toDate(),
+      };
+
+      const userRef = doc(db, 'users', postData.created_by);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        postData.username = userSnap.data().username;
+        postData.profile_picture = userSnap.data().profile_picture;
+      }
+
+      if (postData.group_id) {
+        const groupRef = doc(db, 'groups', postData.group_id);
+        const groupSnap = await getDoc(groupRef);
+        if (groupSnap.exists()) {
+          postData.group_name = groupSnap.data().name;
+        }
+      } else {
+        postData.group_name = null;
+      }
+
+      setPosts([postData]);
+      await fetchPostsAroundPost(postData);
+    } catch (error) {
+      console.error('Error fetching initial post:', error);
+    }
+    setLoading(false);
+  };
+
+  const fetchPostsAroundPost = async (initialPost) => {
+    try {
+      const beforePostsQuery = query(
+        collection(db, 'posts'),
+        orderBy('created_at', 'desc'),
+        limit(pageSize),
+        startAt(initialPost.created_at)
+      );
+
+      const afterPostsQuery = query(
+        collection(db, 'posts'),
+        orderBy('created_at', 'desc'),
+        limit(pageSize),
+        startAfter(initialPost.created_at)
+      );
+
+      const [beforePostsSnapshot, afterPostsSnapshot] = await Promise.all([
+        getDocs(beforePostsQuery),
+        getDocs(afterPostsQuery)
+      ]);
+
+      const beforePostsData = await processPostsSnapshot(beforePostsSnapshot);
+      const afterPostsData = await processPostsSnapshot(afterPostsSnapshot);
+
+      setPosts(prevPosts => [...beforePostsData.reverse(), ...prevPosts, ...afterPostsData]);
+      setLastVisiblePost(afterPostsSnapshot.docs[afterPostsSnapshot.docs.length - 1]);
+    } catch (error) {
+      console.error('Error fetching posts around:', error);
+    }
+  };
+
+  const fetchPosts = async () => {
+    if (loading || !lastVisiblePost) return;
+
+    setLoading(true);
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        orderBy('created_at', 'desc'),
+        limit(pageSize),
+        startAfter(lastVisiblePost)
+      );
+
+      const postsSnapshot = await getDocs(postsQuery);
+      const postsData = await processPostsSnapshot(postsSnapshot);
+
+      setPosts(prevPosts => [...prevPosts, ...postsData]);
+      setLastVisiblePost(postsSnapshot.docs[postsSnapshot.docs.length - 1]);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    }
+    setLoading(false);
+  };
+
+  const processPostsSnapshot = async (snapshot) => {
+    return await Promise.all(
+      snapshot.docs.map(async (docSnapshot) => {
+        const postData = {
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+          created_at: docSnapshot.data().created_at.toDate(),
+        };
+
+        const userRef = doc(db, 'users', postData.created_by);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          postData.username = userSnap.data().username;
+          postData.profile_picture = userSnap.data().profile_picture;
+        }
+
+        if (postData.group_id) {
+          const groupRef = doc(db, 'groups', postData.group_id);
+          const groupSnap = await getDoc(groupRef);
+          if (groupSnap.exists()) {
+            postData.group_name = groupSnap.data().name;
+          }
+        } else {
+          postData.group_name = null;
+        }
+
+        return postData;
+      })
+    );
+  };
+
+  const fetchComments = async (postId) => {
+    try {
+      const commentsQuery = query(collection(db, `posts/${postId}/comments`));
+      const commentsSnapshot = await getDocs(commentsQuery);
+      const commentsData = await Promise.all(
+        commentsSnapshot.docs.map(async (commentDoc) => {
+          const commentData = {
+            id: commentDoc.id,
+            ...commentDoc.data(),
+            created_at: commentDoc.data().created_at.toDate(),
+          };
+
+          const commentUserRef = doc(db, 'users', commentData.user_id);
+          const commentUserSnap = await getDoc(commentUserRef);
+          if (commentUserSnap.exists()) {
+            commentData.username = commentUserSnap.data().username;
+            commentData.profile_picture = commentUserSnap.data().profile_picture;
+          }
+          return commentData;
+        })
+      );
+
+      setComments(commentsData);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
@@ -120,19 +200,19 @@ const PostDetailScreen = ({ route }) => {
 
     const commentData = {
       text: newComment,
-      createdAt: new Date(),
-      userId: auth.currentUser.uid,
+      created_at: new Date(),
+      user_id: auth.currentUser.uid,
       likes: [],
     };
 
     try {
-      const newCommentRef = await addDoc(collection(db, `posts/${posts[currentIndex].id}/comments`), commentData);
+      const newCommentRef = await addDoc(collection(db, `posts/${postId}/comments`), commentData);
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         commentData.username = userSnap.data().username;
-        commentData.profilePictureUrl = userSnap.data().profilePicture;
-        commentData.id = newCommentRef.id; // Use Firestore generated ID for the comment
+        commentData.profile_picture = userSnap.data().profile_picture;
+        commentData.id = newCommentRef.id;
         setComments([...comments, commentData]);
       }
       setNewComment('');
@@ -156,20 +236,10 @@ const PostDetailScreen = ({ route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const postRef = doc(db, 'posts', posts[currentIndex].id);
+              const postRef = doc(db, 'posts', postId);
               await deleteDoc(postRef);
 
-              const groupRef = doc(db, 'groups', posts[currentIndex].groupId);
-              await updateDoc(groupRef, {
-                posts: arrayRemove(posts[currentIndex].id),
-              });
-
-              const userRef = doc(db, 'users', posts[currentIndex].createdBy);
-              await updateDoc(userRef, {
-                posts: arrayRemove(posts[currentIndex].id),
-              });
-
-              const imageRef = ref(storage, posts[currentIndex].imageUrl);
+              const imageRef = ref(storage, posts[0].image_url);
               await deleteObject(imageRef);
 
               navigation.goBack();
@@ -197,7 +267,7 @@ const PostDetailScreen = ({ route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const commentRef = doc(db, `posts/${posts[currentIndex].id}/comments`, commentId);
+              const commentRef = doc(db, `posts/${postId}/comments`, commentId);
               await deleteDoc(commentRef);
 
               setComments(comments.filter((comment) => comment.id !== commentId));
@@ -230,18 +300,18 @@ const PostDetailScreen = ({ route }) => {
     const reportData = {
       type: reportType,
       details: reportDetails,
-      reportedBy: auth.currentUser.uid,
-      createdAt: new Date(),
+      reported_by: auth.currentUser.uid,
+      created_at: new Date(),
     };
 
     try {
       if (reportCommentId) {
-        const commentRef = doc(db, `posts/${posts[currentIndex].id}/comments`, reportCommentId);
+        const commentRef = doc(db, `posts/${postId}/comments`, reportCommentId);
         await updateDoc(commentRef, {
           reports: arrayUnion(reportData),
         });
       } else {
-        const postRef = doc(db, 'posts', posts[currentIndex].id);
+        const postRef = doc(db, 'posts', postId);
         await updateDoc(postRef, {
           reports: arrayUnion(reportData),
         });
@@ -256,99 +326,102 @@ const PostDetailScreen = ({ route }) => {
     }
   };
 
+  const renderPost = ({ item }) => (
+    <View style={styles.postContainer}>
+      <Image
+        style={styles.image}
+        source={{ uri: item.image_url }}
+        placeholder={{ uri: blurhash }}
+        contentFit="cover"
+        transition={1000}
+      />
+      <View style={styles.overlay}>
+        <Text style={styles.caption}>{item.caption}</Text>
+        <View style={styles.header}>
+          <View style={styles.profileContainer}>
+            <Image style={styles.profilePicture} source={{ uri: item.profile_picture }} />
+            <View style={styles.profileInfo}>
+              <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.created_by })}>
+                <Text style={styles.username}>{item.username}</Text>
+              </TouchableOpacity>
+              {item.group_name && (
+                <Text style={styles.groupName}>Group: {item.group_name}</Text>
+              )}
+            </View>
+          </View>
+          {item.created_by === auth.currentUser.uid ? (
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+              <Icon name="trash" size={24} color="#ff4444" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.reportButton} onPress={handleReportPost}>
+              <Icon name="flag" size={24} color="#ff4444" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <FlatList
+          data={comments}
+          keyExtractor={(comment) => comment.id}
+          renderItem={({ item: comment }) => (
+            <View style={styles.commentContainer}>
+              <View style={styles.commentHeader}>
+                <Image style={styles.commentProfilePicture} source={{ uri: comment.profile_picture }} />
+                <View style={styles.commentInfo}>
+                  <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: comment.user_id })}>
+                    <Text style={styles.commentUsername}>{comment.username}</Text>
+                  </TouchableOpacity>
+                  {comment.user_id === auth.currentUser.uid || item.created_by === auth.currentUser.uid ? (
+                    <TouchableOpacity style={styles.deleteCommentButton} onPress={() => handleDeleteComment(comment.id)}>
+                      <Icon name="trash" size={16} color="#ff4444" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.reportCommentButton} onPress={() => handleReportComment(comment.id)}>
+                      <Icon name="flag" size={16} color="#ff4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+              <Text style={styles.commentText}>{comment.text}</Text>
+              <Text style={styles.timestamp}>{comment.created_at.toLocaleString()}</Text>
+            </View>
+          )}
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.inputContainer}
+        >
+          <TextInput
+            value={newComment}
+            onChangeText={setNewComment}
+            style={styles.input}
+            placeholder="Write a comment..."
+            placeholderTextColor="#ccc"
+            onSubmitEditing={handleAddComment}
+          />
+          <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
+            <Text style={styles.addCommentButtonText}>Add Comment</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Icon name="arrow-left" size={24} color="white" />
+      </TouchableOpacity>
       {posts.length > 0 ? (
         <FlatList
           ref={flatListRef}
           data={posts}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.postContainer}>
-              <Image
-                style={styles.image}
-                source={{ uri: item.imageUrl }}
-                placeholder={{ uri: blurhash }}
-                contentFit="cover"
-                transition={1000}
-              />
-              <View style={styles.overlay}>
-                <Text style={styles.caption}>{item.caption}</Text>
-                <View style={styles.header}>
-                  <View style={styles.profileContainer}>
-                    <Image style={styles.profilePicture} source={{ uri: item.profilePictureUrl }} />
-                    <View style={styles.profileInfo}>
-                      <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: item.createdBy })}>
-                        <Text style={styles.username}>{item.username}</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.streak}>Streak: {item.streakScore}</Text>
-                      <Text style={styles.groupName}>Group: {item.groupName}</Text>
-                    </View>
-                  </View>
-                  {item.createdBy === auth.currentUser.uid ? (
-                    <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
-                      <Icon name="trash" size={24} color="#ff4444" />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity style={styles.reportButton} onPress={handleReportPost}>
-                      <Icon name="flag" size={24} color="#ff4444" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <FlatList
-                  data={comments}
-                  keyExtractor={(comment) => comment.id}
-                  renderItem={({ item: comment }) => (
-                    <View style={styles.commentContainer}>
-                      <View style={styles.commentHeader}>
-                        <Image style={styles.commentProfilePicture} source={{ uri: comment.profilePictureUrl }} />
-                        <View style={styles.commentInfo}>
-                          <TouchableOpacity onPress={() => navigation.navigate('UserProfile', { userId: comment.userId })}>
-                            <Text style={styles.commentUsername}>{comment.username}</Text>
-                          </TouchableOpacity>
-                          {comment.userId === auth.currentUser.uid || item.createdBy === auth.currentUser.uid ? (
-                            <TouchableOpacity style={styles.deleteCommentButton} onPress={() => handleDeleteComment(comment.id)}>
-                              <Icon name="trash" size={16} color="#ff4444" />
-                            </TouchableOpacity>
-                          ) : (
-                            <TouchableOpacity style={styles.reportCommentButton} onPress={() => handleReportComment(comment.id)}>
-                              <Icon name="flag" size={16} color="#ff4444" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.commentText}>{comment.text}</Text>
-                      <Text style={styles.timestamp}>{comment.createdAt.toLocaleString()}</Text>
-                    </View>
-                  )}
-                />
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                  style={styles.inputContainer}
-                >
-                  <TextInput
-                    value={newComment}
-                    onChangeText={setNewComment}
-                    style={styles.input}
-                    placeholder="Write a comment..."
-                    placeholderTextColor="#ccc"
-                    onSubmitEditing={handleAddComment}
-                  />
-                  <TouchableOpacity style={styles.addCommentButton} onPress={handleAddComment}>
-                    <Text style={styles.addCommentButtonText}>Add Comment</Text>
-                  </TouchableOpacity>
-                </KeyboardAvoidingView>
-              </View>
-            </View>
-          )}
+          renderItem={renderPost}
+          onEndReached={fetchPosts}
+          onEndReachedThreshold={0.5}
           pagingEnabled
           horizontal={false}
           showsVerticalScrollIndicator={false}
-          onScroll={(e) => {
-            const index = Math.round(e.nativeEvent.contentOffset.y / height);
-            setCurrentIndex(index);
-          }}
-          initialScrollIndex={currentIndex}
           getItemLayout={(data, index) => (
             { length: height, offset: height * index, index }
           )}
@@ -404,6 +477,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 40 : 20,
+    left: 20,
+    zIndex: 1,
+  },
   postContainer: {
     height: height,
     width: width,
@@ -451,10 +530,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1e90ff',
     fontSize: 16,
-  },
-  streak: {
-    color: '#ccc',
-    fontSize: 14,
   },
   groupName: {
     color: 'grey',

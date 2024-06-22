@@ -151,11 +151,12 @@ const CreateAccountScreen = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       const userProfile = {
-        uid: user.uid,
         email: user.email,
         username: username,
-        profilePicture: profilePicture,
-        streakScore: 0,
+        profile_picture: profilePicture,
+        private_account: false,
+        email_notifications: true,
+        push_notifications: true,
       };
 
       await setDoc(doc(db, "users", user.uid), userProfile);

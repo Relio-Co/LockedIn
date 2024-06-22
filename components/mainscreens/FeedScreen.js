@@ -1,37 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
-  Dimensions,
   TouchableOpacity,
   Text,
-  StyleSheet,
-  ActivityIndicator,
   Platform,
+  StyleSheet,
+  Dimensions,
   RefreshControl,
-  Modal,
-} from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { BlurView } from 'expo-blur';
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, query, getDocs, orderBy, limit, doc, getDoc } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import { BlurView } from 'expo-blur';
+import { collection, query, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image } from "expo-image";
+import { Image } from 'expo-image';
+import ImageFeed from './ImageFeed';
 import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
-const pageSize = 400;
-
-const blurhash =
-  "|rF?hV%2WCj[ayj[a|j[az_NaeWBj@ayfRayfQfQM{M|azj[azf6fQfQIpWXofj[ayj[j[fQayWCoeoeaya}j[ayfQa{oLj?j[WVj[ayayj[fQoff7azayj[ayj[j[ayofayayayj[fQj[ayayj[ayfjj[j[ayjuayj[";
+const pageSize = 20;
 
 const FeedScreen = () => {
   const navigation = useNavigation();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profilePicture, setProfilePicture] = useState('');
 
   useEffect(() => {
@@ -43,40 +39,35 @@ const FeedScreen = () => {
     setLoading(true);
     try {
       const postsQuery = query(
-        collection(db, "posts"),
-        orderBy("createdAt", "desc"),
+        collection(db, 'posts'),
+        orderBy('created_at', 'desc'),
         limit(pageSize)
       );
       const postsSnap = await getDocs(postsQuery);
 
-      console.log("Fetched posts:", postsSnap.docs.length);
+      const postsData = await Promise.all(
+        postsSnap.docs.map(async (docSnapshot) => {
+          const postData = docSnapshot.data();
+          const userId = postData.created_by;
+          const groupId = postData.group_id;
 
-      const postsData = await Promise.all(postsSnap.docs.map(async (docSnapshot) => {
-        const postData = docSnapshot.data();
-        const userId = postData.createdBy;
-        const groupId = postData.groupId;
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          const groupDoc = await getDoc(doc(db, 'groups', groupId));
 
-        console.log("Processing post:", postData);
-
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        const groupDoc = await getDoc(doc(db, 'groups', groupId));
-        const streakDoc = await getDoc(doc(db, `users/${userId}/groupStreaks/${groupId}`));
-
-        return {
-          id: docSnapshot.id,
-          ...postData,
-          username: userDoc.exists() ? userDoc.data().username : 'Unknown',
-          group: groupDoc.exists() ? groupDoc.data().name : 'Unknown Group',
-          streak: streakDoc.exists() ? streakDoc.data().streakScore : 0,
-        };
-      }));
-
-      console.log("Processed posts data:", postsData);
+          return {
+            id: docSnapshot.id,
+            ...postData,
+            username: userDoc.exists() ? userDoc.data().username : 'Unknown',
+            group: groupDoc.exists() ? groupDoc.data().name : 'Unknown Group',
+            comments: postData.comments || 0,
+          };
+        })
+      );
 
       setPosts(postsData);
       await AsyncStorage.setItem('posts', JSON.stringify(postsData));
     } catch (error) {
-      console.error("Error fetching initial posts:", error);
+      console.error('Error fetching initial posts:', error);
     }
     setLoading(false);
   };
@@ -91,7 +82,7 @@ const FeedScreen = () => {
         await fetchInitialPosts();
       }
     } catch (error) {
-      console.error("Error loading posts:", error);
+      console.error('Error loading posts:', error);
     }
     setLoading(false);
   };
@@ -101,10 +92,10 @@ const FeedScreen = () => {
       const userProfile = await AsyncStorage.getItem('userProfile');
       if (userProfile) {
         const userProfileData = JSON.parse(userProfile);
-        setProfilePicture(userProfileData.profilePicture);
+        setProfilePicture(userProfileData.profile_picture);
       }
     } catch (error) {
-      console.error("Error fetching profile picture:", error);
+      console.error('Error fetching profile picture:', error);
     }
   };
 
@@ -114,85 +105,50 @@ const FeedScreen = () => {
     setRefreshing(false);
   };
 
-  const renderPostItem = (item, index) => (
-    <TouchableOpacity key={`${item.id}-${index}`} onPress={() => navigation.navigate('PostDetail', { postId: item.id })} style={styles.postItem}>
-      <Image
-        style={styles.postImage}
-        source={{ uri: item.imageUrl }}
-        placeholder={{ uri: blurhash }}
-        contentFit="cover"
-        transition={1000}
-      />
-      <View style={styles.postDetails}>
-        <Text style={styles.posterName}>
-          <Ionicons name="flame-outline" size={16} color="orange" /> {item.streak} - {item.username}
-        </Text>
-        <Text style={styles.postCaption}>{item.caption}</Text>
-        <View style={styles.groupPill}>
-          <Text style={styles.groupPillText}>{item.group}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderPosts = () => {
-    return (
-      <View style={styles.postsContainer}>
-        {posts.map((item, index) => renderPostItem(item, index))}
-        {loading && <ActivityIndicator size="large" color="#00b4d8" />}
-      </View>
-    );
-  };
-
   const handleCamera = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.cancelled) {
-      navigation.navigate('Post', { image: result.assets[0].uri });
+    const hasPermission = await ImagePicker.requestCameraPermissionsAsync();
+    if (hasPermission.status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera permission is required to take a photo.');
+      return;
     }
+    navigation.navigate('Post');
   };
 
   return (
     <View style={styles.container}>
       <ScrollView
-        style={styles.outerScrollView}
-        contentContainerStyle={styles.contentContainer}
-        horizontal
-        pagingEnabled
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-          />
-        }
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        <ScrollView contentContainerStyle={styles.contentContainer}>
-          {renderPosts()}
-        </ScrollView>
+        <ImageFeed posts={posts} loading={loading} navigation={navigation} />
       </ScrollView>
 
       <View style={styles.topPillsContainer}>
-        <View style={styles.pillWrapper}>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('Search')}>
           <BlurView intensity={50} style={styles.pill}>
             <Ionicons name="search" size={24} color="white" />
           </BlurView>
-        </View>
-        <View style={styles.pillWrapper}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper}>
           <BlurView intensity={50} style={styles.pill}>
             <Text style={styles.pillText}>Explore</Text>
           </BlurView>
-        </View>
-        <View style={styles.pillWrapper}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.replace('ForYouFeedScreen')}>
           <BlurView intensity={50} style={styles.pill}>
-            <TouchableOpacity onPress={() => navigation.replace('ForYouFeedScreen')}>
-              <Text style={styles.pillText}>For You</Text>
-            </TouchableOpacity>
+            <Text style={styles.pillText}>For You</Text>
           </BlurView>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('FriendsScreen')}>
+          <BlurView intensity={50} style={styles.pill}>
+            <MaterialIcons name="person-add" size={24} color="white" />
+          </BlurView>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillWrapper} onPress={() => navigation.navigate('Settings')}>
+          <BlurView intensity={50} style={styles.pill}>
+            <Ionicons name="settings" size={24} color="white" />
+          </BlurView>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.navbarWrapper}>
@@ -217,50 +173,15 @@ const FeedScreen = () => {
               <View style={styles.notificationDot} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}>
-            <Image 
-              source={{ uri: profilePicture }} 
-              style={styles.profileImage} 
-            />
+          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
+            {profilePicture ? (
+              <Image source={{ uri: profilePicture }} style={styles.profileImage} />
+            ) : (
+              <MaterialIcons name="person" size={24} color="white" />
+            )}
           </TouchableOpacity>
         </BlurView>
       </View>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={profileModalVisible}
-        onRequestClose={() => setProfileModalVisible(!profileModalVisible)}
-      >
-        <TouchableOpacity style={styles.modalContainer} onPress={() => setProfileModalVisible(false)}>
-          <View style={styles.modalView}>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('FriendsScreen');
-            }}>
-              <Text style={styles.modalButtonText}>Add Friend</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('Profile');
-            }}>
-              <Text style={styles.modalButtonText}>View Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('AddHabit');
-            }}>
-              <Text style={styles.modalButtonText}>Add Habit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
-              setProfileModalVisible(false);
-              navigation.navigate('Settings');
-            }}>
-              <Text style={styles.modalButtonText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 };
@@ -270,69 +191,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
-  outerScrollView: {
+  scrollView: {
     flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: width * 2,
-    height: height * 2,
-  },
-  postsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  postItem: {
-    width: (width / 2) - 10,
-    height: (height / 2) - 10,
-    margin: 5,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  postImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  postDetails: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    padding: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  posterName: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  postCaption: {
-    color: 'white',
-    marginVertical: 5,
-  },
-  streakText: {
-    color: 'orange',
-  },
-  groupPill: {
-    backgroundColor: 'gray',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    alignSelf: 'flex-start',
-    marginTop: 5,
-  },
-  groupPillText: {
-    color: 'white',
-    fontSize: 12,
   },
   topPillsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20, // Adjust for iOS notch
+    top: Platform.OS === 'ios' ? 50 : 20,
     left: 10,
     right: 10,
     zIndex: 1,
@@ -378,10 +244,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  navText: {
-    fontSize: 18,
-    color: 'white',
-  },
   navCenterItem: {
     alignItems: 'center',
   },
@@ -416,39 +278,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: 'red',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalButton: {
-    backgroundColor: '#2196F3',
-    borderRadius: 20,
-    padding: 10,
-    marginBottom: 10,
-    width: 200,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
 });
 

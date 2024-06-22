@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, SafeAreaView } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
-import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs, limit, startAfter } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { Image } from 'expo-image';
+
+const { width } = Dimensions.get('window');
 
 function ProfileScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -14,8 +16,10 @@ function ProfileScreen({ navigation }) {
   const [name, setName] = useState('John Doe');
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [posts, setPosts] = useState([]);
-  const [streaks, setStreaks] = useState({});
   const [groupStreaks, setGroupStreaks] = useState({});
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [lastPost, setLastPost] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -30,20 +34,53 @@ function ProfileScreen({ navigation }) {
         setUsername(userData.username);
         setName(userData.name);
         setProfilePicture(userData.profilePicture || 'https://via.placeholder.com/100');
-        setStreaks({
-          streakScore: userData.streakScore,
-          highestGlobalStreak: userData.highestGlobalStreak,
-        });
-        setGroupStreaks(userData.groupStreaks || {});
+        const groupsRef = collection(userRef, 'groups');
+        const groupsSnap = await getDocs(groupsRef);
+        const groupsData = groupsSnap.docs.map(doc => doc.id);
+        setGroups(groupsData);
 
-        // Fetch user's posts
-        const postsQuery = query(collection(db, 'posts'), where('createdBy', '==', auth.currentUser.uid));
-        const postsSnap = await getDocs(postsQuery);
-        const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPosts(postsData);
+        fetchPosts();
+        await fetchStreaks(groupsData);
       }
+      setLoading(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch user data');
+      setLoading(false);
+    }
+  };
+
+  const fetchPosts = async (paginate = false) => {
+    try {
+      let postsQuery = query(collection(db, 'posts'), where('created_by', '==', auth.currentUser.uid), limit(10));
+      if (paginate && lastPost) {
+        postsQuery = query(postsQuery, startAfter(lastPost));
+      }
+      const postsSnap = await getDocs(postsQuery);
+      const postsData = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPosts(prevPosts => paginate ? [...prevPosts, ...postsData] : postsData);
+      setLastPost(postsSnap.docs[postsSnap.docs.length - 1]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch posts');
+    }
+  };
+
+  const fetchStreaks = async (groups) => {
+    try {
+      const groupNames = {};
+      const fetchGroupPromises = groups.map(async (groupId) => {
+        const groupRef = doc(db, 'groups', groupId);
+        const groupSnap = await getDoc(groupRef);
+        if (groupSnap.exists()) {
+          groupNames[groupId] = {
+            name: groupSnap.data().name,
+            streakScore: groupSnap.data().score,
+          };
+        }
+      });
+      await Promise.all(fetchGroupPromises);
+      setGroupStreaks(groupNames);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch group names');
     }
   };
 
@@ -147,143 +184,181 @@ function ProfileScreen({ navigation }) {
     });
     
     const activityMap = posts.reduce((acc, post) => {
-      const date = post.createdAt.toDate().toISOString().split('T')[0];
+      const date = post.created_at.toDate().toISOString().split('T')[0];
       if (!acc[date]) acc[date] = [];
-      acc[date].push(post.imageUrl);
+      acc[date].push(post.image_url);
       return acc;
     }, {});
 
     return days.reverse().map(day => (
-      <ImageBackground 
-        key={day} 
-        source={{ uri: activityMap[day] ? activityMap[day][0] : null }}
-        style={[styles.activityDay, { backgroundColor: getActivityColor(activityMap[day] ? activityMap[day].length : 0) }]}
-      />
+      <View key={day} style={[styles.activityDay, { backgroundColor: getActivityColor(activityMap[day] ? activityMap[day].length : 0) }]}>
+        {activityMap[day] && <Image source={{ uri: activityMap[day][0] }} style={styles.activityImage} />}
+      </View>
     ));
   };
 
   const getActivityColor = (count) => {
-    if (count === 0) return '#ebedf0';
-    if (count === 1) return '#c6e48b';
-    if (count === 2) return '#7bc96f';
-    if (count === 3) return '#239a3b';
-    return '#196127';
+    if (count === 0) return '#3a3a3a';
+    if (count === 1) return '#6a6a6a';
+    if (count === 2) return '#9a9a9a';
+    if (count === 3) return '#c3c3c3';
+    return '#fff';
+  };
+
+  const renderGroups = () => {
+    const sortedGroups = Object.entries(groupStreaks).sort((a, b) => b[1].streakScore - a[1].streakScore);
+    return sortedGroups.map(([groupId, groupData]) => (
+      <TouchableOpacity key={groupId} style={styles.groupItem} onPress={() => navigation.navigate('GroupDetails', { groupId })}>
+        <Icon name="users" size={20} color="orange" />
+        <Text style={styles.groupName}>{groupData.name}: {groupData.streakScore} days</Text>
+      </TouchableOpacity>
+    ));
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={pickImage}>
-          <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
-          <Icon name="edit" size={24} color="white" style={styles.editIcon} />
-        </TouchableOpacity>
-        {isEditingUsername ? (
-          <TextInput
-            style={styles.input}
-            placeholder="Update username"
-            placeholderTextColor="#ccc"
-            value={username}
-            onChangeText={setUsername}
-            onBlur={handleUpdateProfile}
-          />
-        ) : (
-          <TouchableOpacity onPress={() => setIsEditingUsername(true)}>
-            <Text style={styles.name}>{username} <Icon name="edit" size={16} color="white" /></Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={pickImage} style={styles.profileImageContainer}>
+            <Image source={{ uri: profilePicture }} style={styles.profilePicture} />
+            <Icon name="camera" size={24} color="white" style={styles.cameraIcon} />
           </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.settingsIcon} onPress={() => navigation.navigate('Settings')}>
-          <Icon name="cog" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.stats}>
-        <Text style={styles.stat}>Posts: {posts.length}</Text>
-        <Text style={styles.stat}>Current Streak: {streaks.streakScore} days</Text>
-        <Text style={styles.stat}>Highest Streak: {streaks.highestGlobalStreak} days</Text>
-      </View>
-      <View style={styles.streaks}>
-        <Text style={styles.streaksTitle}>Group Streaks</Text>
-        {Object.entries(groupStreaks).map(([group, streakData]) => (
-          <View key={group} style={styles.streak}>
-            <Icon name="bolt" size={20} color="orange" />
-            <Text style={styles.streakText}>
-              {group.name}: {streakData.streakScore} days (Highest: {streakData.highestStreak} days)
-            </Text>
+          <View style={styles.userInfo}>
+            {isEditingUsername ? (
+              <TextInput
+                style={styles.input}
+                placeholder="Update username"
+                placeholderTextColor="#ccc"
+                value={username}
+                onChangeText={setUsername}
+                onBlur={handleUpdateProfile}
+              />
+            ) : (
+              <TouchableOpacity onPress={() => setIsEditingUsername(true)}>
+                <Text style={styles.name}>{username} <Icon name="edit" size={16} color="white" /></Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.fullName}>{name}</Text>
           </View>
-        ))}
-      </View>
-      <View style={styles.posts}>
-        <Text style={styles.postsTitle}>Posts Activity (Last 30 Days)</Text>
-        <View style={styles.activityGrid}>
-          {getActivityGrid()}
+          <TouchableOpacity style={styles.settingsIcon} onPress={() => navigation.navigate('Settings')}>
+            <Icon name="cog" size={24} color="white" />
+          </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statValue}>{posts.length}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
+          </View>
+        </View>
+        <View style={styles.groupsContainer}>
+          <Text style={styles.groupsTitle}>Groups</Text>
+          {renderGroups()}
+        </View>
+        <View style={styles.posts}>
+          <Text style={styles.postsTitle}>Posts Activity (Last 30 Days)</Text>
+          <View style={styles.activityGrid}>
+            {getActivityGrid()}
+          </View>
+        </View>
+        <TouchableOpacity onPress={() => fetchPosts(true)} style={styles.loadMoreButton}>
+          <Text style={styles.loadMoreText}>Load More Posts</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   container: {
     flex: 1,
     backgroundColor: '#000',
-    paddingTop: 50,
-    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  profileImageContainer: {
+    position: 'relative',
   },
   profilePicture: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginRight: 20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
-  editIcon: {
+  cameraIcon: {
     position: 'absolute',
-    top: 70,
-    right: 10,
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    padding: 5,
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: 20,
   },
   name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  input: {
-    backgroundColor: '#191919',
-    color: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  settingsIcon: {
-    marginLeft: 'auto',
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  stat: {
-    fontSize: 16,
-    color: 'white',
-  },
-  streaks: {
-    marginBottom: 20,
-  },
-  streaksTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: 'white',
+  },
+  fullName: {
+    fontSize: 14,
+    color: '#aaa',
+    marginTop: 5,
+  },
+  input: {
+    backgroundColor: '#333',
+    color: 'white',
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+  },
+  settingsIcon: {
+    padding: 10,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  statBox: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#aaa',
+  },
+  groupsContainer: {
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  groupsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
     marginBottom: 10,
   },
-  streak: {
+  groupItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    paddingVertical: 10,
   },
-  streakText: {
-    fontSize: 16,
+  groupName: {
+    fontSize: 14,
     color: 'white',
     marginLeft: 10,
   },
@@ -291,19 +366,40 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   postsTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 10,
+    paddingHorizontal: 20,
   },
   activityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    paddingHorizontal: 20,
   },
   activityDay: {
-    width: 20,
-    height: 20,
-    margin: 2,
+    width: (width - 60) / 7,
+    height: (width - 60) / 7,
+    margin: 5,
+    borderRadius: 5,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityImage: {
+    width: '100%',
+    height: '100%',
+  },
+  loadMoreButton: {
+    padding: 15,
+    alignItems: 'center',
+    backgroundColor: '#00b4d8',
+    margin: 20,
+    borderRadius: 10,
+  },
+  loadMoreText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });
 

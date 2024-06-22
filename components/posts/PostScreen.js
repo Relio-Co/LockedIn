@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, Image, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { Picker } from '@react-native-picker/picker';
 import { storage, db, auth } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, addDoc, collection, query, getDoc, getDocs, where, updateDoc, arrayUnion } from 'firebase/firestore';
-import RNPickerSelect from 'react-native-picker-select';
+import { doc, addDoc, collection, query, getDoc, getDocs, where, setDoc } from 'firebase/firestore';
 
 function PostScreen({ route }) {
   const { groupId, image: initialImage } = route.params || {};
@@ -17,75 +17,61 @@ function PostScreen({ route }) {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      const q = query(collection(db, "groups"), where("members", "array-contains", auth.currentUser.uid));
-      const snapshot = await getDocs(q);
-      const groupsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        public: doc.data().public
-      }));
-      setGroups(groupsData);
-      if (!selectedGroup && groupsData.length > 0 && !groupId) {
-        setSelectedGroup(groupsData[0].id);
+      try {
+        const q = query(collection(db, "groups"));
+        const snapshot = await getDocs(q);
+
+        const groupsData = await Promise.all(snapshot.docs.map(async (groupDoc) => {
+          const membersSnapshot = await getDocs(collection(groupDoc.ref, 'members'));
+          const isMember = membersSnapshot.docs.some(doc => doc.id === auth.currentUser.uid);
+          if (isMember) {
+            return {
+              id: groupDoc.id,
+              name: groupDoc.data().name,
+              public: groupDoc.data().public
+            };
+          }
+          return null;
+        }));
+
+        const filteredGroups = groupsData.filter(group => group !== null);
+        setGroups(filteredGroups);
+
+        if (!selectedGroup && filteredGroups.length > 0 && !groupId) {
+          setSelectedGroup(filteredGroups[0].id);
+        }
+      } catch (error) {
+        console.error("Error fetching groups:", error);
       }
     };
     fetchGroups();
+  }, [selectedGroup, groupId]);
+
+  useEffect(() => {
+    takePhoto();
   }, []);
 
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const takePhoto = async () => {
     const cameraPermissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!permissionResult.granted || !cameraPermissionResult.granted) {
-      Alert.alert("Permission required", "You need to allow access to your photos and camera to upload an image.");
+    if (!cameraPermissionResult.granted) {
+      Alert.alert("Permission required", "You need to allow access to your camera to take a photo.");
       return;
     }
 
-    Alert.alert(
-      "Select Image",
-      "Choose an option",
-      [
-        {
-          text: "Camera Roll",
-          onPress: async () => {
-            let result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 1,
-            });
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
 
-            if (result.cancelled) {
-              setImage(null);
-              return;
-            }
+    if (result.canceled) {
+      setImage(null);
+      return;
+    }
 
-            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
-            setImage(manipResult.uri);
-          }
-        },
-        {
-          text: "Take Photo",
-          onPress: async () => {
-            let result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 1,
-            });
-
-            if (result.cancelled) {
-              setImage(null);
-              return;
-            }
-
-            const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
-            setImage(manipResult.uri);
-          }
-        },
-        { text: "Cancel", style: "cancel" }
-      ],
-      { cancelable: true }
-    );
+    const manipResult = await manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 600 } }], { compress: 0.1, format: SaveFormat.JPEG });
+    setImage(manipResult.uri);
   };
 
   const handleUpload = async () => {
@@ -112,22 +98,20 @@ function PostScreen({ route }) {
       const imageUrl = await getDownloadURL(fileRef);
 
       const newPost = {
-        imageUrl,
+        image_url: imageUrl,
         caption,
-        createdBy: auth.currentUser.uid,
-        createdByUsername: username,
-        createdAt: new Date(),
-        groupName: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
-        groupId: selectedGroup,
-        isPublic: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
+        created_by: auth.currentUser.uid,
+        created_by_username: username,
+        created_at: new Date(),
+        group_name: selectedGroup ? groups.find(g => g.id === selectedGroup).name : "No Group",
+        group_id: selectedGroup,
+        is_public: selectedGroup ? groups.find(g => g.id === selectedGroup).public : true
       };
 
       const newPostRef = await addDoc(collection(db, 'posts'), newPost);
 
       if (selectedGroup) {
-        await updateDoc(doc(db, 'groups', selectedGroup), {
-          posts: arrayUnion(newPostRef.id)
-        });
+        await setDoc(doc(collection(db, 'groups', selectedGroup, 'posts'), newPostRef.id), { post_id: newPostRef.id });
       }
 
       Alert.alert('Success', 'Post uploaded successfully!');
@@ -148,30 +132,34 @@ function PostScreen({ route }) {
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.profilePictureButton} onPress={pickImage}>
+        <TouchableOpacity style={styles.imageContainer} onPress={takePhoto}>
           {image ? (
-            <Image source={{ uri: image }} style={styles.profilePicture} />
+            <Image source={{ uri: image }} style={styles.image} />
           ) : (
-            <Text style={styles.buttonText}>Pick an image</Text>
+            <Text style={styles.imagePlaceholderText}>Tap to take a photo</Text>
           )}
         </TouchableOpacity>
         <TextInput
           style={styles.input}
           placeholder="Write a caption..."
-          placeholderTextColor="#ccc"
+          placeholderTextColor="#aaa"
           value={caption}
           onChangeText={setCaption}
           multiline
         />
-        <RNPickerSelect
-          onValueChange={(value) => setSelectedGroup(value)}
-          items={groups.map(group => ({ label: group.name, value: group.id }))}
-          style={pickerSelectStyles}
-          value={selectedGroup}
-          useNativeAndroidPickerStyle={false}
-          placeholder={{ label: "Select a group...", value: null }}
-        />
-        <TouchableOpacity style={styles.button} onPress={handleUpload} disabled={uploading}>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedGroup}
+            onValueChange={(itemValue) => setSelectedGroup(itemValue)}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            {groups.map((group) => (
+              <Picker.Item key={group.id} label={group.name} value={group.id} />
+            ))}
+          </Picker>
+        </View>
+        <TouchableOpacity style={[styles.button, uploading && styles.buttonDisabled]} onPress={handleUpload} disabled={uploading}>
           <Text style={styles.buttonText}>Upload Post</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -182,72 +170,71 @@ function PostScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#1a1a1a',
+    padding: 20,
   },
-  profilePictureButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#232323',
+  imageContainer: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#2c2c2c',
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    overflow: 'hidden',
   },
-  profilePicture: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholderText: {
+    color: '#aaa',
+    fontSize: 18,
+    textAlign: 'center',
   },
   input: {
     width: '100%',
     minHeight: 100,
     padding: 15,
-    borderWidth: 2,
-    borderColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#444',
     borderRadius: 10,
-    color: 'white',
-    backgroundColor: '#191919',
+    color: '#fff',
+    backgroundColor: '#2c2c2c',
     marginBottom: 20,
     fontSize: 16,
+  },
+  pickerContainer: {
+    width: '100%',
+    backgroundColor: '#2c2c2c',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#444',
+    marginBottom: 20,
+  },
+  picker: {
+    width: '100%',
+    color: '#fff',
+  },
+  pickerItem: {
+    color: '#fff',
   },
   button: {
     width: '100%',
     padding: 15,
-    backgroundColor: '#00b4d8',
-    borderRadius: 50,
+    backgroundColor: '#007BFF',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 10,
   },
+  buttonDisabled: {
+    backgroundColor: '#555',
+  },
   buttonText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#fff',
-    borderRadius: 4,
-    color: 'white',
-    paddingRight: 30,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#fff',
-    borderRadius: 8,
-    color: 'white',
-    paddingRight: 30,
   },
 });
 

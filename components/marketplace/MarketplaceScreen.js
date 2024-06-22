@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 
@@ -20,7 +20,7 @@ const MarketplaceScreen = () => {
     fetchItems();
   }, []);
 
-  const handleAddCoach = async (item) => {
+  const handleAddItem = async (item) => {
     if (credits < item.price) {
       Alert.alert('Insufficient Credits', 'You do not have enough credits to buy this item.');
       return;
@@ -28,26 +28,28 @@ const MarketplaceScreen = () => {
 
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        'items.chatbot': arrayUnion(item)
+      const userItemsRef = collection(userRef, 'items');
+      await updateDoc(doc(userItemsRef, item.id), {
+        ...item,
+        purchased_at: new Date()
       });
       setCredits(credits - item.price);
-      Alert.alert('Success', `${item.name} has been added to your coaches.`);
+      Alert.alert('Success', `${item.name} has been added to your items.`);
     } catch (error) {
-      console.error("Error adding coach: ", error);
-      Alert.alert('Error', 'Failed to add coach. Please try again.');
+      console.error("Error adding item: ", error);
+      Alert.alert('Error', 'Failed to add item. Please try again.');
     }
   };
 
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
-      <Image style={styles.avatar} source={{ uri: item.avatar }} />
+      <Image style={styles.avatar} source={{ uri: item.image }} />
       <View style={styles.itemInfo}>
         <Text style={styles.itemName}>{item.name}</Text>
         <Text style={styles.itemType}>{item.type}</Text>
         <Text style={styles.itemPrice}>${item.price}</Text>
       </View>
-      <TouchableOpacity style={styles.buyButton} onPress={() => handleAddCoach(item)}>
+      <TouchableOpacity style={styles.buyButton} onPress={() => handleAddItem(item)}>
         <Text style={styles.buyButtonText}>Buy</Text>
       </TouchableOpacity>
     </View>
